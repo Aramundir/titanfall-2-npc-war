@@ -5,6 +5,7 @@ global function NPCWarPilotMode_PlayerTitanMeterUnlocked
 global function NPCWarPilotMode_TitanEscalationUnlocked
 global function NPCWarPilotMode_PlayerPilotDeathScore
 global function NPCWarPilotMode_BoostMode
+global function NPCWarPilotMode_BoostPool
 global function NPCWarDirector_Enabled
 global function NPCWarDirector_EnemyComebackPressureEnabled
 global function NPCWarDirector_AllyDampeningEnabled
@@ -29,6 +30,7 @@ global function NPCWarDirector_EmergencyUnitsEnabled
 const string NPCWAR_GRUNT_MOVEMENT_VAR = "npcwar_grunt_movement"
 const string NPCWAR_CALLABLE_TITANS_VAR = "npcwar_titan_availability"
 const string NPCWAR_BOOST_MODE_VAR = "npcwar_boost_availability"
+const string NPCWAR_BOOST_POOL_VAR = "npcwar_boost_pool"
 const string NPCWAR_PLAYER_PILOT_DEATH_SCORE_VAR = "npcwar_player_pilot_death_score"
 const string NPCWAR_PLAYER_TACTICAL_VAR = "npcwar_player_tactical"
 const string NPCWAR_PLAYER_ORDNANCE_VAR = "npcwar_player_ordnance"
@@ -79,6 +81,8 @@ const int NPCWAR_TITAN_MODE_POST_TITAN = 2
 const int NPCWAR_BOOST_MODE_DISABLED = 0
 const int NPCWAR_BOOST_MODE_VANILLA = 1
 const int NPCWAR_BOOST_MODE_POST_TITAN = 2
+const int NPCWAR_BOOST_POOL_VANILLA = 0
+const int NPCWAR_BOOST_POOL_GRUNT_MODE_2 = 1
 const int NPCWAR_PLAYER_PILOT_DEATH_SCORE_DEFAULT = 20
 const int NPCWAR_LEVEL_SPECTRES_DEFAULT = 80
 const int NPCWAR_LEVEL_STALKERS_DEFAULT = 150
@@ -121,6 +125,7 @@ void function NPCWarPilotModeSettings_Init()
 	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_GRUNT_MOVEMENT_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "0", "Grunt Movement" )
 	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_CALLABLE_TITANS_VAR, [ "#SETTING_DISABLED", "Vanilla", "Post-Titan Threshold" ], "2", "Titan Availability" )
 	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_BOOST_MODE_VAR, [ "#SETTING_DISABLED", "Vanilla", "Post-Titan Threshold" ], "1", "Boost Availability" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_BOOST_POOL_VAR, [ "Vanilla", "Grunt Mode 2" ], "0", "Boost Pool" )
 	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_PLAYER_TACTICAL_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Tactical Ability" )
 	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_PLAYER_ORDNANCE_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Ordnance" )
 	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_PLAYER_ANTI_TITAN_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Anti-Titan Weapon" )
@@ -187,6 +192,16 @@ int function NPCWarPilotMode_BoostMode()
 
 	if ( mode < NPCWAR_BOOST_MODE_DISABLED || mode > NPCWAR_BOOST_MODE_POST_TITAN )
 		return NPCWAR_BOOST_MODE_VANILLA
+
+	return mode
+}
+
+int function NPCWarPilotMode_BoostPool()
+{
+	int mode = GetCurrentPlaylistVarInt( NPCWAR_BOOST_POOL_VAR, NPCWAR_BOOST_POOL_VANILLA )
+
+	if ( mode < NPCWAR_BOOST_POOL_VANILLA || mode > NPCWAR_BOOST_POOL_GRUNT_MODE_2 )
+		return NPCWAR_BOOST_POOL_VANILLA
 
 	return mode
 }

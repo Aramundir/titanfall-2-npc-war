@@ -64,9 +64,9 @@ This is one of NPC War's main changes from Grunt Mode 2: the player keeps their 
 
 Respawn theatrics are kept from Grunt Mode 2. The player prefers dropship respawns, with droppod fallback behavior when needed.
 
-## Titan And Boost Availability
+## Titan And Boost Settings
 
-NPC War adds configurable player Titan and boost availability so the player can choose between vanilla Pilot power and a more grunt-like sandbox.
+NPC War adds configurable player Titan and boost behavior so the player can choose between vanilla Pilot power and a more grunt-like sandbox.
 
 `Titan Availability` defaults to `Post-Titan Threshold`.
 
@@ -79,6 +79,11 @@ NPC War adds configurable player Titan and boost availability so the player can 
 - `Disabled`: boost rewards are disabled.
 - `Vanilla`: normal Titanfall 2 boost meter behavior from match start.
 - `Post-Titan Threshold`: boost meter behavior unlocks only after the Titan/Pilot escalation threshold has been reached.
+
+`Boost Pool` defaults to `Vanilla`.
+
+- `Vanilla`: boost names match their normal Northstar/Titanfall 2 effects.
+- `Grunt Mode 2`: keeps the inherited Grunt Mode 2 boost payloads, where some boosts are repurposed into custom rewards such as the double-barrel shotgun, hacked Spectres, or a pet Reaper.
 
 Boost Drops and Direct Grant boosts are not part of the current live design.
 
@@ -267,7 +272,8 @@ NPC War groups its sandbox controls under `NPC War` categories and exposes many 
 
 - `Grunt Movement`: enables or disables grunt-style movement limits for the player.
 - `Titan Availability`: controls player Titan meter behavior.
-- `Boost Availability`: controls player boost behavior.
+- `Boost Availability`: controls when the boost meter is available.
+- `Boost Pool`: controls whether boost activations use vanilla effects or inherited Grunt Mode 2 payloads.
 - `Tactical Ability`: enables or removes the player's selected tactical ability.
 - `Ordnance`: enables or removes the player's selected ordnance.
 - `Anti-Titan Weapon`: enables or removes the player's anti-Titan main weapon slot.
