@@ -2,7 +2,7 @@
 
 NPC War is a Titanfall 2 Northstar mod for large AI battlefield matches with normal customizable Pilot loadouts.
 
-It is built from Grunt Mode 2. Full credit for the original battlefield structure, NPC classes, escalation foundation, scoring AI, and randomized grunt-war concept goes to EnderBoy and Voyage.
+It is built from Grunt Mode 2. Full credit for the original battlefield structure, NPC classes, escalation foundation, scoring AI, and randomized grunt-war concept goes to EnderBoy9217 and VoyageDB_Modding_Home.
 
 This mod was made mostly because I wanted to play Attrition, Hardpoints and CTF by myself, fully PvE, so I haven't tested this as a multiplayer mod at all, but I tried my best to make the NPC balancing is fair to both sides of the match, so it should work nice on Multiplayer.
 
@@ -39,7 +39,8 @@ Important:
 
 NPC War keeps clear lineage to Grunt Mode 2 while diverging toward a customizable Pilot-loadout AI battlefield sandbox.
 
-- EnderBoy and Voyage: original Grunt Mode 2 foundation.
+- EnderBoy9217: original Grunt Mode 2 foundation.
+- VoyageDB_Modding_Home: original Grunt Mode lineage and spawn-code work used by Grunt Mode 2.
 - Aramundir: NPC War fork direction, design goals, and playtesting.
 - Codex: implementation support for the NPC War fork.
 
