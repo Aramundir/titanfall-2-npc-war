@@ -1,0 +1,22 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Temporary/generated files
+*.tmp
+*.bak
+*.old
+*.orig
+*.rej
+
+# Local packaging artifacts
+*.zip
+*.7z
+*.rar
+
+# Northstar/runtime artifacts if this repo is ever copied to a wider folder
+logs/
+runtime/

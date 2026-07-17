@@ -1,0 +1,88 @@
+untyped
+
+global function NPCWarBoostRewards_Init
+
+const float NPCWAR_BOOST_REWARD_THINK_INTERVAL = 0.5
+const string NPCWAR_BOOST_REWARD_THINK_SIGNAL = "NPCWarBoostRewardsThink"
+const int NPCWAR_BOOST_REWARDS_MODE_DISABLED = 0
+const int NPCWAR_BOOST_REWARDS_MODE_POST_TITAN = 2
+
+struct
+{
+	table<entity, bool> postTitanRewardsEnabled
+} file
+
+void function NPCWarBoostRewards_Init()
+{
+	RegisterSignal( NPCWAR_BOOST_REWARD_THINK_SIGNAL )
+
+	AddCallback_GameStateEnter( eGameState.Playing, NPCWarBoostRewards_OnPlaying )
+	AddCallback_OnClientConnected( NPCWarBoostRewards_OnClientConnected )
+	AddCallback_OnPlayerRespawned( NPCWarBoostRewards_OnPlayerRespawned )
+}
+
+void function NPCWarBoostRewards_OnPlaying()
+{
+	file.postTitanRewardsEnabled = {}
+
+	foreach ( entity player in GetPlayerArray() )
+		NPCWarBoostRewards_StartPlayerThink( player )
+}
+
+void function NPCWarBoostRewards_OnClientConnected( entity player )
+{
+	if ( GetGameState() >= eGameState.Playing )
+		NPCWarBoostRewards_StartPlayerThink( player )
+}
+
+void function NPCWarBoostRewards_OnPlayerRespawned( entity player )
+{
+	if ( GetGameState() >= eGameState.Playing )
+		NPCWarBoostRewards_StartPlayerThink( player )
+}
+
+void function NPCWarBoostRewards_StartPlayerThink( entity player )
+{
+	if ( !IsValid( player ) )
+		return
+
+	player.Signal( NPCWAR_BOOST_REWARD_THINK_SIGNAL )
+	thread NPCWarBoostRewards_PlayerThink( player )
+}
+
+void function NPCWarBoostRewards_PlayerThink( entity player )
+{
+	player.EndSignal( "OnDestroy" )
+	player.EndSignal( "OnDeath" )
+	player.EndSignal( NPCWAR_BOOST_REWARD_THINK_SIGNAL )
+
+	while ( GetGameState() == eGameState.Playing )
+	{
+		NPCWarBoostRewards_UpdateMeterState( player, NPCWarPilotMode_BoostMode() )
+		wait NPCWAR_BOOST_REWARD_THINK_INTERVAL
+	}
+}
+
+void function NPCWarBoostRewards_UpdateMeterState( entity player, int mode )
+{
+	if ( mode == NPCWAR_BOOST_REWARDS_MODE_DISABLED )
+	{
+		PlayerEarnMeter_DisableReward( player )
+		return
+	}
+
+	if ( mode != NPCWAR_BOOST_REWARDS_MODE_POST_TITAN )
+		return
+
+	if ( !NPCWarPilotMode_TitanEscalationUnlocked() )
+	{
+		PlayerEarnMeter_DisableReward( player )
+		return
+	}
+
+	if ( ( player in file.postTitanRewardsEnabled ) && file.postTitanRewardsEnabled[ player ] )
+		return
+
+	file.postTitanRewardsEnabled[ player ] <- true
+	EarnMeterMP_SetBoostByRef( player, GetSelectedBurnCardRef( player ) )
+}

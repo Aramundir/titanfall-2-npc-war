@@ -1,0 +1,133 @@
+{
+	"Name" : "NPC War",
+	"Description" : "Large NPC battlefield sandbox with normal pilot loadouts",
+	"Version": "0.1.0",
+	"LoadPriority": 2,
+	"RequiredOnClient": false,
+	"ConVars": [
+		{
+			"Name": "NPCWAR_SQUADS",
+			"DefaultValue": "5",
+			"HelpString": "The number of Grunt/Spectre/Stalker squads that can be deployed at once, per-team (default 5)"
+		},
+		{
+			"Name": "NPCWAR_REAPERS",
+			"DefaultValue": "2",
+			"HelpString": "The number of Reapers that can be deployed at once, per-team (default 2)"
+		},
+		{
+			"Name": "NPCWAR_PROWLERS",
+			"DefaultValue": "3",
+			"HelpString": "The number of Prowlers that can be deployed at once, per-team (default 3)"
+		},
+		{
+			"Name": "NPCWAR_PILOTS",
+			"DefaultValue": "2",
+			"HelpString": "The number of Titans with Pilots that can be deployed at once, per-team (default 2)"
+		},
+		{
+			"Name": "NPCWAR_TITANS",
+			"DefaultValue": "0",
+			"HelpString": "The number of Titans without Pilots that can be deployed at once, per-team (default 0)"
+		},
+		{
+			"Name": "NPCWAR_MRVNS",
+			"DefaultValue": "0",
+			"HelpString": "The number of Marvins that can be deployed at once, per-team (default 0)"
+		},
+		{
+			"Name": "NPCWAR_GUNSHIPS",
+			"DefaultValue": "0",
+			"HelpString": "The number of Gunships that can be deployed at once, per-team (default 0)"
+		},
+		{
+			"Name": "NPCWAR_LEVEL_SPECTRES",
+			"DefaultValue": "80",
+			"HelpString": "The score the opposing team must reach for spectre squads and marvins to start spawning (default 80)"
+		},
+		{
+			"Name": "NPCWAR_LEVEL_STALKERS",
+			"DefaultValue": "150",
+			"HelpString": "The score the opposing team must reach for stalker squads and prowlers to start spawning, and marvins to stop spawning (default 150)"
+		},
+		{
+			"Name": "NPCWAR_LEVEL_REAPERS",
+			"DefaultValue": "250",
+			"HelpString": "The score the opposing team must reach for Reapers to start spawning (default 250)"
+		},
+		{
+			"Name": "NPCWAR_LEVEL_GUNSHIPS",
+			"DefaultValue": "300",
+			"HelpString": "The score the opposing team must reach for Gunships to start spawning (default 300)"
+		},
+		{
+			"Name": "NPCWAR_LEVEL_TITANS",
+			"DefaultValue": "500",
+			"HelpString": "The score the opposing team must reach for Titans and Pilots to start spawning, and Prowlers to stop spawning (default 500)"
+		},
+		{
+			"Name": "MAX_CAPPERS",
+			"DefaultValue": "5",
+			"HelpString": "Maximum amount of players who can capture an objective point, each AI counts as half a player (default 5), (vanilla default 3)"
+		},
+		{
+			"Name": "DISABLE_KILLCAMS",
+			"DefaultValue": "false",
+			"HelpString": "UI Does not update during killcams, so they've been automatically disabled by this mod, if you'd like to re-enable them, I suggest increasing the respawn timer considerably (default true)"
+		},
+		{
+			"Name": "NPCWAR_CUSTOM_SPAWNING",
+			"DefaultValue": "true",
+			"HelpString": "Enables custom spawning mechanisms (Dropships, droppods) (default 'true')"
+		}
+		
+	],
+	"Scripts": [
+		{
+			"Path": "/npcwar/sh_npc_war_settings.gnut",
+			"RunOn": "MP",
+			"ClientCallback": {
+				"After": "NPCWarPilotModeSettings_Init"
+			},
+            "ServerCallback": {
+                "After": "NPCWarPilotModeSettings_Init"
+            }
+		},
+		{
+			"Path": "/npcwar/sv_npc_war_boost_rewards.gnut",
+			"RunOn": "SERVER && MP",
+            "ServerCallback": {
+                "After": "NPCWarBoostRewards_Init"
+            }
+		},
+		{
+			"Path": "/npcwar/sv_npc_war_droppod_spawn.gnut",
+			"RunOn": " SERVER && MP",
+			"ClientCallback": {
+				"After": "NPCWarDropPodSpawn_Init"
+			},
+            "ServerCallback": {
+                "After": "NPCWarDropPodSpawn_Init"
+            }
+		},
+		{
+			"Path": "/npcwar/sv_npc_war_player_setup.gnut",
+			"RunOn": " SERVER && MP",
+			"ClientCallback": {
+				"After": "NPCWarPlayerSetup_Init"
+			},
+            "ServerCallback": {
+                "After": "NPCWarPlayerSetup_Init"
+            }
+		},
+		{
+			"Path": "/gamemodes/_npcwar.gnut",
+			"RunOn": " SERVER && MP"
+		},
+		{
+			"Path": "/npcwar/sv_npc_war_dropship_respawn.gnut",
+			"RunOn": "SERVER && MP"
+		}
+	]
+}
+

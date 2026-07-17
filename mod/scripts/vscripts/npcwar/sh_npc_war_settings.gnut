@@ -1,0 +1,781 @@
+global function NPCWarPilotModeSettings_Init
+global function NPCWarPilotMode_GruntMovementEnabled
+global function NPCWarPilotMode_CallableTitansEnabled
+global function NPCWarPilotMode_PlayerTitanMeterUnlocked
+global function NPCWarPilotMode_TitanEscalationUnlocked
+global function NPCWarPilotMode_PlayerPilotDeathScore
+global function NPCWarPilotMode_BoostMode
+global function NPCWarDirector_Enabled
+global function NPCWarDirector_EnemyComebackPressureEnabled
+global function NPCWarDirector_AllyDampeningEnabled
+global function NPCWarDirector_HotPlayerDampeningEnabled
+global function NPCWarDirector_EscalationNudgingEnabled
+global function NPCWarDirector_EmergencyUnitsEnabled
+
+#if SERVER
+	global function NPCWarPilotMode_PrepareTitanAvailability
+	global function NPCWarPilotMode_ApplyMatchLimitOverrides
+	global function NPCWarPilotMode_ApplyBoostAvailability
+	global function NPCWarPilotMode_ApplyPlayerSettings
+	global function NPCWarPilotMode_UpdatePlayerTitanMeter
+	global function NPCWarPilotMode_UnlockPlayerTitanMeter
+	global function NPCWarPilotMode_GetEscalationThresholdForStage
+	global function NPCWarDirector_GetSquadSpawnLimit
+	global function NPCWarDirector_GetUnitLimit
+	global function NPCWarDirector_GetEscalationScore
+#endif
+
+const string NPCWAR_GRUNT_MOVEMENT_VAR = "npcwar_grunt_movement"
+const string NPCWAR_CALLABLE_TITANS_VAR = "npcwar_titan_availability"
+const string NPCWAR_BOOST_MODE_VAR = "npcwar_boost_availability"
+const string NPCWAR_PLAYER_PILOT_DEATH_SCORE_VAR = "npcwar_player_pilot_death_score"
+const string NPCWAR_PLAYER_TACTICAL_VAR = "npcwar_player_tactical"
+const string NPCWAR_PLAYER_ORDNANCE_VAR = "npcwar_player_ordnance"
+const string NPCWAR_PLAYER_ANTI_TITAN_VAR = "npcwar_player_anti_titan"
+const string NPCWAR_DIRECTOR_MODE_VAR = "npcwar_director_mode"
+const string NPCWAR_SETTINGS_CATEGORY_GENERAL = "NPC War - 1 Player Options"
+const string NPCWAR_SETTINGS_CATEGORY_DIRECTOR = "NPC War - 2 Director"
+const string NPCWAR_SETTINGS_CATEGORY_MATCH = "NPC War - 3 Match Settings"
+const string NPCWAR_SETTINGS_CATEGORY_BUDGET = "NPC War - 4 Reinforcement Budgets"
+const string NPCWAR_DIRECTOR_COMEBACK_INFANTRY_VAR = "npcwar_director_comeback_infantry"
+const string NPCWAR_DIRECTOR_LEADER_DAMPENING_VAR = "npcwar_director_leader_dampening"
+const string NPCWAR_DIRECTOR_HOT_PLAYER_DAMPENING_VAR = "npcwar_director_hot_player_pressure"
+const string NPCWAR_DIRECTOR_MESSAGES_VAR = "npcwar_director_messages"
+const string NPCWAR_DIRECTOR_PRESSURE_STEP_VAR = "npcwar_director_pressure_step"
+const string NPCWAR_DIRECTOR_PRESSURE_1_VAR = "npcwar_director_pressure_1"
+const string NPCWAR_DIRECTOR_PRESSURE_2_VAR = "npcwar_director_pressure_2"
+const string NPCWAR_DIRECTOR_PRESSURE_3_VAR = "npcwar_director_pressure_3"
+const string NPCWAR_DIRECTOR_REAPER_BONUS_VAR = "npcwar_director_reaper_bonus"
+const string NPCWAR_DIRECTOR_PROWLER_BONUS_VAR = "npcwar_director_prowler_bonus"
+const string NPCWAR_DIRECTOR_TITAN_BONUS_VAR = "npcwar_director_titan_bonus"
+const string NPCWAR_DIRECTOR_AI_PILOT_BONUS_VAR = "npcwar_director_ai_pilot_bonus"
+const string NPCWAR_DIRECTOR_GUNSHIP_BONUS_VAR = "npcwar_director_gunship_bonus"
+const string NPCWAR_DIRECTOR_MARVIN_BONUS_VAR = "npcwar_director_marvin_bonus"
+const string NPCWAR_LEVEL_SPECTRES_VAR = "npcwar_level_spectres"
+const string NPCWAR_LEVEL_STALKERS_VAR = "npcwar_level_stalkers"
+const string NPCWAR_LEVEL_REAPERS_VAR = "npcwar_level_reapers"
+const string NPCWAR_LEVEL_GUNSHIPS_VAR = "npcwar_level_gunships"
+const string NPCWAR_LEVEL_TITANS_VAR = "npcwar_level_titans"
+const string NPCWAR_MILITIA_INFANTRY_BUDGET_VAR = "npcwar_militia_infantry_budget"
+const string NPCWAR_IMC_INFANTRY_BUDGET_VAR = "npcwar_imc_infantry_budget"
+const string NPCWAR_MILITIA_REAPER_BUDGET_VAR = "npcwar_militia_reaper_budget"
+const string NPCWAR_IMC_REAPER_BUDGET_VAR = "npcwar_imc_reaper_budget"
+const string NPCWAR_MILITIA_PROWLER_BUDGET_VAR = "npcwar_militia_prowler_budget"
+const string NPCWAR_IMC_PROWLER_BUDGET_VAR = "npcwar_imc_prowler_budget"
+const string NPCWAR_MILITIA_TITAN_BUDGET_VAR = "npcwar_militia_titan_budget"
+const string NPCWAR_IMC_TITAN_BUDGET_VAR = "npcwar_imc_titan_budget"
+const string NPCWAR_MILITIA_AI_PILOT_BUDGET_VAR = "npcwar_militia_ai_pilot_budget"
+const string NPCWAR_IMC_AI_PILOT_BUDGET_VAR = "npcwar_imc_ai_pilot_budget"
+const string NPCWAR_MILITIA_MARVIN_BUDGET_VAR = "npcwar_militia_marvin_budget"
+const string NPCWAR_IMC_MARVIN_BUDGET_VAR = "npcwar_imc_marvin_budget"
+const string NPCWAR_MILITIA_GUNSHIP_BUDGET_VAR = "npcwar_militia_gunship_budget"
+const string NPCWAR_IMC_GUNSHIP_BUDGET_VAR = "npcwar_imc_gunship_budget"
+const int NPCWAR_DIRECTOR_DISABLED = 0
+const int NPCWAR_DIRECTOR_ENABLED = 1
+const int NPCWAR_TITAN_MODE_DISABLED = 0
+const int NPCWAR_TITAN_MODE_VANILLA = 1
+const int NPCWAR_TITAN_MODE_POST_TITAN = 2
+const int NPCWAR_BOOST_MODE_DISABLED = 0
+const int NPCWAR_BOOST_MODE_VANILLA = 1
+const int NPCWAR_BOOST_MODE_POST_TITAN = 2
+const int NPCWAR_PLAYER_PILOT_DEATH_SCORE_DEFAULT = 20
+const int NPCWAR_LEVEL_SPECTRES_DEFAULT = 80
+const int NPCWAR_LEVEL_STALKERS_DEFAULT = 150
+const int NPCWAR_LEVEL_REAPERS_DEFAULT = 250
+const int NPCWAR_LEVEL_GUNSHIPS_DEFAULT = 300
+const int NPCWAR_LEVEL_TITANS_DEFAULT = 500
+const int NPCWAR_ESCALATION_STAGE_SPECTRES = 0
+const int NPCWAR_ESCALATION_STAGE_STALKERS = 1
+const int NPCWAR_ESCALATION_STAGE_REAPERS = 2
+const int NPCWAR_ESCALATION_STAGE_GUNSHIPS = 3
+const int NPCWAR_ESCALATION_STAGE_TITANS = 4
+const int NPCWAR_ESCALATION_STAGE_DONE = 5
+
+const int NPCWAR_DIRECTOR_PRESSURE_1_DEFAULT = 75
+const int NPCWAR_DIRECTOR_PRESSURE_2_DEFAULT = 150
+const int NPCWAR_DIRECTOR_PRESSURE_3_DEFAULT = 250
+const int NPCWAR_DIRECTOR_INFANTRY_BUDGET_STEP_DEFAULT = 4
+const int NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT = 0
+const int NPCWAR_BUDGET_DEFAULT = -1
+const int NPCWAR_INFANTRY_BUDGET_VISIBLE_DEFAULT = 18
+const int NPCWAR_REAPER_BUDGET_VISIBLE_DEFAULT = 2
+const int NPCWAR_PROWLER_BUDGET_VISIBLE_DEFAULT = 3
+const int NPCWAR_TITAN_BUDGET_VISIBLE_DEFAULT = 0
+const int NPCWAR_AI_PILOT_BUDGET_VISIBLE_DEFAULT = 2
+const int NPCWAR_MARVIN_BUDGET_VISIBLE_DEFAULT = 0
+const int NPCWAR_GUNSHIP_BUDGET_VISIBLE_DEFAULT = 0
+const float NPCWAR_DIRECTOR_STATUS_MESSAGE_COOLDOWN = 8.0
+
+struct
+{
+	bool titanMeterUnlocked = false
+	bool directorAnnounced = false
+	float nextDirectorStatusMessageTime = 0.0
+	array< int > lastPressureLevel = [ -1, -1 ]
+	array< int > lastDampeningLevel = [ -1, -1 ]
+} file
+
+void function NPCWarPilotModeSettings_Init()
+{
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_GRUNT_MOVEMENT_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "0", "Grunt Movement" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_CALLABLE_TITANS_VAR, [ "#SETTING_DISABLED", "Vanilla", "Post-Titan Threshold" ], "2", "Titan Availability" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_BOOST_MODE_VAR, [ "#SETTING_DISABLED", "Vanilla", "Post-Titan Threshold" ], "1", "Boost Availability" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_PLAYER_TACTICAL_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Tactical Ability" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_PLAYER_ORDNANCE_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Ordnance" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_PLAYER_ANTI_TITAN_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Anti-Titan Weapon" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_PLAYER_PILOT_DEATH_SCORE_VAR, string( NPCWAR_PLAYER_PILOT_DEATH_SCORE_DEFAULT ), "Player Pilot Death Score" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_MODE_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "NPC War Director" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_COMEBACK_INFANTRY_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Comeback Infantry" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_LEADER_DAMPENING_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Leader Dampening" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_HOT_PLAYER_DAMPENING_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Hot Player Dampening" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_MESSAGES_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Director Messages" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_PRESSURE_STEP_VAR, string( NPCWAR_DIRECTOR_INFANTRY_BUDGET_STEP_DEFAULT ), "Pressure Infantry Step" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_PRESSURE_1_VAR, string( NPCWAR_DIRECTOR_PRESSURE_1_DEFAULT ), "Pressure Level 1 Score Gap" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_PRESSURE_2_VAR, string( NPCWAR_DIRECTOR_PRESSURE_2_DEFAULT ), "Pressure Level 2 Score Gap" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_PRESSURE_3_VAR, string( NPCWAR_DIRECTOR_PRESSURE_3_DEFAULT ), "Pressure Level 3 Score Gap" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_REAPER_BONUS_VAR, string( NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT ), "Reaper Pressure Bonus" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_PROWLER_BONUS_VAR, string( NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT ), "Prowler Pressure Bonus" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_TITAN_BONUS_VAR, string( NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT ), "Titan Pressure Bonus" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_AI_PILOT_BONUS_VAR, string( NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT ), "AI Pilot Pressure Bonus" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_GUNSHIP_BONUS_VAR, string( NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT ), "Gunship Pressure Bonus" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_MARVIN_BONUS_VAR, string( NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT ), "Marvin Pressure Bonus" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_MATCH, NPCWAR_LEVEL_SPECTRES_VAR, string( NPCWAR_LEVEL_SPECTRES_DEFAULT ), "Spectres Score" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_MATCH, NPCWAR_LEVEL_STALKERS_VAR, string( NPCWAR_LEVEL_STALKERS_DEFAULT ), "Stalkers/Prowlers Score" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_MATCH, NPCWAR_LEVEL_REAPERS_VAR, string( NPCWAR_LEVEL_REAPERS_DEFAULT ), "Reapers Score" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_MATCH, NPCWAR_LEVEL_GUNSHIPS_VAR, string( NPCWAR_LEVEL_GUNSHIPS_DEFAULT ), "Gunships Score" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_MATCH, NPCWAR_LEVEL_TITANS_VAR, string( NPCWAR_LEVEL_TITANS_DEFAULT ), "Titans/Pilots Score" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_MILITIA_INFANTRY_BUDGET_VAR, string( NPCWAR_INFANTRY_BUDGET_VISIBLE_DEFAULT ), "Militia Infantry Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_IMC_INFANTRY_BUDGET_VAR, string( NPCWAR_INFANTRY_BUDGET_VISIBLE_DEFAULT ), "IMC Infantry Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_MILITIA_REAPER_BUDGET_VAR, string( NPCWAR_REAPER_BUDGET_VISIBLE_DEFAULT ), "Militia Reaper Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_IMC_REAPER_BUDGET_VAR, string( NPCWAR_REAPER_BUDGET_VISIBLE_DEFAULT ), "IMC Reaper Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_MILITIA_PROWLER_BUDGET_VAR, string( NPCWAR_PROWLER_BUDGET_VISIBLE_DEFAULT ), "Militia Prowler Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_IMC_PROWLER_BUDGET_VAR, string( NPCWAR_PROWLER_BUDGET_VISIBLE_DEFAULT ), "IMC Prowler Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_MILITIA_TITAN_BUDGET_VAR, string( NPCWAR_TITAN_BUDGET_VISIBLE_DEFAULT ), "Militia Titan Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_IMC_TITAN_BUDGET_VAR, string( NPCWAR_TITAN_BUDGET_VISIBLE_DEFAULT ), "IMC Titan Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_MILITIA_AI_PILOT_BUDGET_VAR, string( NPCWAR_AI_PILOT_BUDGET_VISIBLE_DEFAULT ), "Militia AI Pilot Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_IMC_AI_PILOT_BUDGET_VAR, string( NPCWAR_AI_PILOT_BUDGET_VISIBLE_DEFAULT ), "IMC AI Pilot Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_MILITIA_MARVIN_BUDGET_VAR, string( NPCWAR_MARVIN_BUDGET_VISIBLE_DEFAULT ), "Militia Marvin Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_IMC_MARVIN_BUDGET_VAR, string( NPCWAR_MARVIN_BUDGET_VISIBLE_DEFAULT ), "IMC Marvin Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_MILITIA_GUNSHIP_BUDGET_VAR, string( NPCWAR_GUNSHIP_BUDGET_VISIBLE_DEFAULT ), "Militia Gunship Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_IMC_GUNSHIP_BUDGET_VAR, string( NPCWAR_GUNSHIP_BUDGET_VISIBLE_DEFAULT ), "IMC Gunship Budget" )
+}
+
+bool function NPCWarPilotMode_GruntMovementEnabled()
+{
+	return GetCurrentPlaylistVarInt( NPCWAR_GRUNT_MOVEMENT_VAR, 0 ) == 1
+}
+
+bool function NPCWarPilotMode_CallableTitansEnabled()
+{
+	return NPCWarPilotMode_TitanAvailabilityMode() != NPCWAR_TITAN_MODE_DISABLED
+}
+
+int function NPCWarPilotMode_TitanAvailabilityMode()
+{
+	int mode = GetCurrentPlaylistVarInt( NPCWAR_CALLABLE_TITANS_VAR, NPCWAR_TITAN_MODE_POST_TITAN )
+
+	if ( mode < NPCWAR_TITAN_MODE_DISABLED || mode > NPCWAR_TITAN_MODE_POST_TITAN )
+		return NPCWAR_TITAN_MODE_POST_TITAN
+
+	return mode
+}
+
+int function NPCWarPilotMode_BoostMode()
+{
+	int mode = GetCurrentPlaylistVarInt( NPCWAR_BOOST_MODE_VAR, NPCWAR_BOOST_MODE_VANILLA )
+
+	if ( mode < NPCWAR_BOOST_MODE_DISABLED || mode > NPCWAR_BOOST_MODE_POST_TITAN )
+		return NPCWAR_BOOST_MODE_VANILLA
+
+	return mode
+}
+
+bool function NPCWarPilotMode_TacticalEnabled()
+{
+	return GetCurrentPlaylistVarInt( NPCWAR_PLAYER_TACTICAL_VAR, 1 ) == 1
+}
+
+bool function NPCWarPilotMode_OrdnanceEnabled()
+{
+	return GetCurrentPlaylistVarInt( NPCWAR_PLAYER_ORDNANCE_VAR, 1 ) == 1
+}
+
+bool function NPCWarPilotMode_AntiTitanWeaponEnabled()
+{
+	return GetCurrentPlaylistVarInt( NPCWAR_PLAYER_ANTI_TITAN_VAR, 1 ) == 1
+}
+
+bool function NPCWarPilotMode_PlayerTitanMeterUnlocked()
+{
+	int titanMode = NPCWarPilotMode_TitanAvailabilityMode()
+	return titanMode == NPCWAR_TITAN_MODE_VANILLA || ( titanMode == NPCWAR_TITAN_MODE_POST_TITAN && file.titanMeterUnlocked )
+}
+
+bool function NPCWarPilotMode_TitanEscalationUnlocked()
+{
+	return file.titanMeterUnlocked
+}
+
+int function NPCWarPilotMode_PlayerPilotDeathScore()
+{
+	int score = GetCurrentPlaylistVarInt( NPCWAR_PLAYER_PILOT_DEATH_SCORE_VAR, NPCWAR_PLAYER_PILOT_DEATH_SCORE_DEFAULT )
+
+	if ( score < 0 )
+		return 0
+
+	return score
+}
+
+bool function NPCWarDirector_Enabled()
+{
+	return GetCurrentPlaylistVarInt( NPCWAR_DIRECTOR_MODE_VAR, NPCWAR_DIRECTOR_ENABLED ) == NPCWAR_DIRECTOR_ENABLED
+}
+
+bool function NPCWarDirector_EnemyComebackPressureEnabled()
+{
+	return NPCWarDirector_SettingEnabled( NPCWAR_DIRECTOR_COMEBACK_INFANTRY_VAR )
+}
+
+bool function NPCWarDirector_AllyDampeningEnabled()
+{
+	return NPCWarDirector_SettingEnabled( NPCWAR_DIRECTOR_LEADER_DAMPENING_VAR )
+}
+
+bool function NPCWarDirector_HotPlayerDampeningEnabled()
+{
+	return NPCWarDirector_SettingEnabled( NPCWAR_DIRECTOR_HOT_PLAYER_DAMPENING_VAR )
+}
+
+bool function NPCWarDirector_EscalationNudgingEnabled()
+{
+	return false
+}
+
+bool function NPCWarDirector_EmergencyUnitsEnabled()
+{
+	return false
+}
+
+bool function NPCWarDirector_MessagesEnabled()
+{
+	return NPCWarDirector_SettingEnabled( NPCWAR_DIRECTOR_MESSAGES_VAR )
+}
+
+bool function NPCWarDirector_SettingEnabled( string playlistVar, int defaultValue = 1 )
+{
+	return NPCWarDirector_Enabled() && GetCurrentPlaylistVarInt( playlistVar, defaultValue ) == 1
+}
+
+#if SERVER
+void function NPCWarPilotMode_ApplyMatchLimitOverrides()
+{
+	// SetPlaylistVarOverride is only safe from Northstar's private lobby setting flow.
+	// Game-mode init can run while the private lobby map is loading and still trip the native guard.
+}
+
+void function NPCWarPilotMode_ApplyBoostAvailability()
+{
+	if ( NPCWarPilotMode_BoostMode() == NPCWAR_BOOST_MODE_DISABLED )
+	{
+		Riff_ForceBoostAvailability( eBoostAvailability.Disabled )
+		return
+	}
+
+	Riff_ForceBoostAvailability( eBoostAvailability.Default )
+}
+
+int function NPCWarPilotMode_GetEscalationThresholdForStage( int stage )
+{
+	switch ( stage )
+	{
+		case NPCWAR_ESCALATION_STAGE_SPECTRES:
+			return NPCWarPilotMode_GetEscalationThreshold( NPCWAR_LEVEL_SPECTRES_VAR, "NPCWAR_LEVEL_SPECTRES", NPCWAR_LEVEL_SPECTRES_DEFAULT )
+
+		case NPCWAR_ESCALATION_STAGE_STALKERS:
+			return NPCWarPilotMode_GetEscalationThreshold( NPCWAR_LEVEL_STALKERS_VAR, "NPCWAR_LEVEL_STALKERS", NPCWAR_LEVEL_STALKERS_DEFAULT )
+
+		case NPCWAR_ESCALATION_STAGE_REAPERS:
+			return NPCWarPilotMode_GetEscalationThreshold( NPCWAR_LEVEL_REAPERS_VAR, "NPCWAR_LEVEL_REAPERS", NPCWAR_LEVEL_REAPERS_DEFAULT )
+
+		case NPCWAR_ESCALATION_STAGE_GUNSHIPS:
+			return NPCWarPilotMode_GetEscalationThreshold( NPCWAR_LEVEL_GUNSHIPS_VAR, "NPCWAR_LEVEL_GUNSHIPS", NPCWAR_LEVEL_GUNSHIPS_DEFAULT )
+
+		case NPCWAR_ESCALATION_STAGE_TITANS:
+			return NPCWarPilotMode_GetEscalationThreshold( NPCWAR_LEVEL_TITANS_VAR, "NPCWAR_LEVEL_TITANS", NPCWAR_LEVEL_TITANS_DEFAULT )
+
+		default:
+			return 999999
+	}
+
+	unreachable
+}
+
+int function NPCWarPilotMode_GetEscalationThreshold( string playlistVar, string convarName, int fallbackValue )
+{
+	int defaultValue = GetConVarInt( convarName )
+
+	if ( defaultValue < 0 )
+		defaultValue = fallbackValue
+
+	int threshold = GetCurrentPlaylistVarInt( playlistVar, defaultValue )
+	return maxint( 0, threshold )
+}
+
+void function NPCWarPilotMode_PrepareTitanAvailability()
+{
+	int titanMode = NPCWarPilotMode_TitanAvailabilityMode()
+
+	if ( titanMode == NPCWAR_TITAN_MODE_VANILLA )
+	{
+		Riff_ForceTitanAvailability( eTitanAvailability.Custom )
+		return
+	}
+
+	Riff_ForceTitanAvailability( eTitanAvailability.Never )
+}
+
+void function NPCWarPilotMode_ApplyPlayerSettings( entity player )
+{
+	if ( !IsValid( player ) || player.IsTitan() )
+		return
+
+	array<string> movementMods = [ "disable_doublejump", "disable_wallrun", "less_powerful_gilde" ]
+	array<string> currentMods = player.GetPlayerSettingsMods()
+	bool gruntMovementEnabled = NPCWarPilotMode_GruntMovementEnabled()
+	bool changed = false
+
+	foreach ( string movementMod in movementMods )
+	{
+		bool hasMod = currentMods.contains( movementMod )
+
+		if ( gruntMovementEnabled && !hasMod )
+		{
+			currentMods.append( movementMod )
+			changed = true
+		}
+		else if ( !gruntMovementEnabled && hasMod )
+		{
+			currentMods.fastremovebyvalue( movementMod )
+			changed = true
+		}
+	}
+
+	if ( changed )
+		player.SetPlayerSettingsWithMods( player.GetPlayerSettings(), currentMods )
+
+	if ( !NPCWarPilotMode_TacticalEnabled() )
+		NPCWarPilotMode_TakeOffhandWeapon( player, OFFHAND_SPECIAL )
+
+	if ( !NPCWarPilotMode_OrdnanceEnabled() )
+		NPCWarPilotMode_TakeOffhandWeapon( player, OFFHAND_ORDNANCE )
+
+	if ( !NPCWarPilotMode_AntiTitanWeaponEnabled() )
+		NPCWarPilotMode_TakeAntiTitanWeapons( player )
+}
+
+void function NPCWarPilotMode_TakeOffhandWeapon( entity player, int offhandSlot )
+{
+	entity weapon = player.GetOffhandWeapon( offhandSlot )
+
+	if ( IsValid( weapon ) )
+		player.TakeOffhandWeapon( offhandSlot )
+}
+
+void function NPCWarPilotMode_TakeAntiTitanWeapons( entity player )
+{
+	array<string> antiTitanWeapons
+
+	foreach ( entity weapon in player.GetMainWeapons() )
+	{
+		if ( !IsValid( weapon ) || weapon.GetWeaponType() != WT_ANTITITAN )
+			continue
+
+		antiTitanWeapons.append( weapon.GetWeaponClassName() )
+	}
+
+	foreach ( string weaponName in antiTitanWeapons )
+		player.TakeWeaponNow( weaponName )
+}
+
+void function NPCWarPilotMode_UpdatePlayerTitanMeter( entity player )
+{
+	if ( !IsValid( player ) )
+		return
+
+	int titanMode = NPCWarPilotMode_TitanAvailabilityMode()
+
+	if ( titanMode == NPCWAR_TITAN_MODE_DISABLED )
+	{
+		PlayerEarnMeter_DisableGoal( player )
+		ClearTitanAvailable( player )
+		return
+	}
+
+	if ( titanMode == NPCWAR_TITAN_MODE_VANILLA )
+	{
+		NPCWarPilotMode_EnablePlayerTitanMeter( player )
+		return
+	}
+
+	if ( !file.titanMeterUnlocked )
+	{
+		thread NPCWarPilotMode_LockPlayerTitanMeterUntilThreshold( player )
+		return
+	}
+
+	NPCWarPilotMode_EnablePlayerTitanMeter( player )
+}
+
+void function NPCWarPilotMode_UnlockPlayerTitanMeter()
+{
+	if ( file.titanMeterUnlocked )
+		return
+
+	file.titanMeterUnlocked = true
+
+	if ( NPCWarPilotMode_TitanAvailabilityMode() != NPCWAR_TITAN_MODE_POST_TITAN )
+		return
+
+	Riff_ForceTitanAvailability( eTitanAvailability.Custom )
+	PlayerEarnMeter_SetEnabled( true )
+
+	foreach ( entity player in GetPlayerArray() )
+		NPCWarPilotMode_EnablePlayerTitanMeter( player )
+}
+
+void function NPCWarPilotMode_LockPlayerTitanMeterUntilThreshold( entity player )
+{
+	player.EndSignal( "OnDestroy" )
+	player.EndSignal( "OnDeath" )
+
+	while ( IsValid( player ) && NPCWarPilotMode_TitanAvailabilityMode() == NPCWAR_TITAN_MODE_POST_TITAN && !file.titanMeterUnlocked )
+	{
+		PlayerEarnMeter_DisableGoal( player )
+		ClearTitanAvailable( player )
+		wait 0.25
+	}
+
+	if ( IsValid( player ) && NPCWarPilotMode_TitanAvailabilityMode() != NPCWAR_TITAN_MODE_DISABLED && NPCWarPilotMode_PlayerTitanMeterUnlocked() )
+		NPCWarPilotMode_EnablePlayerTitanMeter( player )
+}
+
+void function NPCWarPilotMode_EnablePlayerTitanMeter( entity player )
+{
+	if ( !IsValid( player ) || player.IsTitan() )
+		return
+
+	PlayerEarnMeter_SetEnabled( true )
+	PlayerEarnMeter_SetMode( player, eEarnMeterMode.DEFAULT )
+	PlayerEarnMeter_Reset( player )
+	EarnMeterMP_SetBoostByRef( player, GetSelectedBurnCardRef( player ) )
+}
+
+int function NPCWarDirector_GetSquadSpawnLimit( int team )
+{
+	int limit = GetConVarInt( "NPCWAR_SQUADS" ) * 4 - 2
+	limit = NPCWarBudget_ApplyInfantryLimit( team, limit )
+
+	if ( !NPCWarDirector_Enabled() )
+		return maxint( 4, limit )
+
+	NPCWarDirector_UpdateStatusMessages( team )
+
+	if ( NPCWarDirector_EnemyComebackPressureEnabled() )
+		limit += NPCWarDirector_GetPressureLevelForTeam( team ) * NPCWarDirector_GetPressureInfantryStep()
+
+	if ( NPCWarDirector_AllyDampeningEnabled() )
+		limit -= NPCWarDirector_GetAllyDampeningLevelForTeam( team ) * NPCWarDirector_GetPressureInfantryStep()
+
+	return maxint( 4, limit )
+}
+
+int function NPCWarDirector_GetUnitLimit( int team, string convarName )
+{
+	int limit = NPCWarBudget_ApplyUnitLimit( team, convarName, GetConVarInt( convarName ) )
+
+	if ( NPCWarDirector_Enabled() )
+		limit += NPCWarDirector_GetSpecialUnitPressureBonus( team, convarName )
+
+	return maxint( 0, limit )
+}
+
+int function NPCWarDirector_GetEscalationScore( int scoringTeam, int baseScore )
+{
+	return baseScore
+}
+
+int function NPCWarDirector_GetPressureLevelForTeam( int team )
+{
+	if ( !NPCWarDirector_EnemyComebackPressureEnabled() )
+		return 0
+
+	int pressureLevel = 0
+	int deficit = GameRules_GetTeamScore( NPCWarDirector_GetOtherTeam( team ) ) - GameRules_GetTeamScore( team )
+
+	if ( deficit >= NPCWarDirector_GetPressureLevel3Gap() )
+		pressureLevel = 3
+	else if ( deficit >= NPCWarDirector_GetPressureLevel2Gap() )
+		pressureLevel = 2
+	else if ( deficit >= NPCWarDirector_GetPressureLevel1Gap() )
+		pressureLevel = 1
+
+	return minint( pressureLevel, 4 )
+}
+
+int function NPCWarDirector_GetAllyDampeningLevelForTeam( int team )
+{
+	if ( !NPCWarDirector_AllyDampeningEnabled() )
+		return 0
+
+	if ( !NPCWarDirector_HotPlayerDampeningEnabled() || !NPCWarDirector_TeamHasHotPlayer( team ) )
+		return 0
+
+	int lead = GameRules_GetTeamScore( team ) - GameRules_GetTeamScore( NPCWarDirector_GetOtherTeam( team ) )
+
+	if ( lead >= NPCWarDirector_GetPressureLevel3Gap() )
+		return 2
+	if ( lead >= NPCWarDirector_GetPressureLevel2Gap() )
+		return 1
+
+	return 0
+}
+
+bool function NPCWarDirector_TeamHasHotPlayer( int team )
+{
+	int teamScore = GameRules_GetTeamScore( team )
+
+	if ( teamScore < NPCWarDirector_GetPressureLevel1Gap() )
+		return false
+
+	foreach ( entity player in GetPlayerArray() )
+	{
+		if ( !IsValid( player ) || player.GetTeam() != team )
+			continue
+
+		if ( player.GetPlayerGameStat( PGS_ASSAULT_SCORE ) >= int( floor( teamScore * 0.4 ) ) )
+			return true
+	}
+
+	return false
+}
+
+bool function NPCWarDirector_CanUseEmergencyUnit( string convarName, int baseLimit )
+{
+	return false
+}
+
+int function NPCWarDirector_GetPressureInfantryStep()
+{
+	return maxint( 0, GetCurrentPlaylistVarInt( NPCWAR_DIRECTOR_PRESSURE_STEP_VAR, NPCWAR_DIRECTOR_INFANTRY_BUDGET_STEP_DEFAULT ) )
+}
+
+int function NPCWarDirector_GetPressureLevel1Gap()
+{
+	return maxint( 0, GetCurrentPlaylistVarInt( NPCWAR_DIRECTOR_PRESSURE_1_VAR, NPCWAR_DIRECTOR_PRESSURE_1_DEFAULT ) )
+}
+
+int function NPCWarDirector_GetPressureLevel2Gap()
+{
+	return maxint( 0, GetCurrentPlaylistVarInt( NPCWAR_DIRECTOR_PRESSURE_2_VAR, NPCWAR_DIRECTOR_PRESSURE_2_DEFAULT ) )
+}
+
+int function NPCWarDirector_GetPressureLevel3Gap()
+{
+	return maxint( 0, GetCurrentPlaylistVarInt( NPCWAR_DIRECTOR_PRESSURE_3_VAR, NPCWAR_DIRECTOR_PRESSURE_3_DEFAULT ) )
+}
+
+int function NPCWarDirector_GetSpecialUnitPressureBonus( int team, string convarName )
+{
+	int pressureLevel = NPCWarDirector_GetPressureLevelForTeam( team )
+
+	if ( pressureLevel <= 0 )
+		return 0
+
+	return pressureLevel * NPCWarDirector_GetSpecialUnitBonusStep( convarName )
+}
+
+int function NPCWarDirector_GetSpecialUnitBonusStep( string convarName )
+{
+	string playlistVar = NPCWarDirector_GetSpecialUnitBonusVar( convarName )
+
+	if ( playlistVar == "" )
+		return 0
+
+	return maxint( 0, GetCurrentPlaylistVarInt( playlistVar, NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT ) )
+}
+
+string function NPCWarDirector_GetSpecialUnitBonusVar( string convarName )
+{
+	if ( convarName == "NPCWAR_REAPERS" )
+		return NPCWAR_DIRECTOR_REAPER_BONUS_VAR
+	if ( convarName == "NPCWAR_PROWLERS" )
+		return NPCWAR_DIRECTOR_PROWLER_BONUS_VAR
+	if ( convarName == "NPCWAR_TITANS" )
+		return NPCWAR_DIRECTOR_TITAN_BONUS_VAR
+	if ( convarName == "NPCWAR_PILOTS" )
+		return NPCWAR_DIRECTOR_AI_PILOT_BONUS_VAR
+	if ( convarName == "NPCWAR_MRVNS" )
+		return NPCWAR_DIRECTOR_MARVIN_BONUS_VAR
+	if ( convarName == "NPCWAR_GUNSHIPS" )
+		return NPCWAR_DIRECTOR_GUNSHIP_BONUS_VAR
+
+	return ""
+}
+
+int function NPCWarBudget_ApplyInfantryLimit( int team, int baseLimit )
+{
+	string budgetVar = NPCWarBudget_GetTeamBudgetVar( team, NPCWAR_MILITIA_INFANTRY_BUDGET_VAR, NPCWAR_IMC_INFANTRY_BUDGET_VAR )
+
+	if ( budgetVar == "" )
+		return baseLimit
+
+	return NPCWarBudget_GetPlaylistIntOrDefault( budgetVar, baseLimit )
+}
+
+int function NPCWarBudget_ApplyUnitLimit( int team, string convarName, int baseLimit )
+{
+	string budgetVar = NPCWarBudget_GetUnitBudgetVarForTeam( team, convarName )
+
+	if ( budgetVar == "" )
+		return baseLimit
+
+	return NPCWarBudget_GetPlaylistIntOrDefault( budgetVar, baseLimit )
+}
+
+string function NPCWarBudget_GetUnitBudgetVarForTeam( int team, string convarName )
+{
+	if ( convarName == "NPCWAR_REAPERS" )
+		return NPCWarBudget_GetTeamBudgetVar( team, NPCWAR_MILITIA_REAPER_BUDGET_VAR, NPCWAR_IMC_REAPER_BUDGET_VAR )
+	if ( convarName == "NPCWAR_PROWLERS" )
+		return NPCWarBudget_GetTeamBudgetVar( team, NPCWAR_MILITIA_PROWLER_BUDGET_VAR, NPCWAR_IMC_PROWLER_BUDGET_VAR )
+	if ( convarName == "NPCWAR_TITANS" )
+		return NPCWarBudget_GetTeamBudgetVar( team, NPCWAR_MILITIA_TITAN_BUDGET_VAR, NPCWAR_IMC_TITAN_BUDGET_VAR )
+	if ( convarName == "NPCWAR_PILOTS" )
+		return NPCWarBudget_GetTeamBudgetVar( team, NPCWAR_MILITIA_AI_PILOT_BUDGET_VAR, NPCWAR_IMC_AI_PILOT_BUDGET_VAR )
+	if ( convarName == "NPCWAR_MRVNS" )
+		return NPCWarBudget_GetTeamBudgetVar( team, NPCWAR_MILITIA_MARVIN_BUDGET_VAR, NPCWAR_IMC_MARVIN_BUDGET_VAR )
+	if ( convarName == "NPCWAR_GUNSHIPS" )
+		return NPCWarBudget_GetTeamBudgetVar( team, NPCWAR_MILITIA_GUNSHIP_BUDGET_VAR, NPCWAR_IMC_GUNSHIP_BUDGET_VAR )
+
+	return ""
+}
+
+string function NPCWarBudget_GetTeamBudgetVar( int team, string militiaVar, string imcVar )
+{
+	if ( team == TEAM_MILITIA )
+		return militiaVar
+
+	if ( team == TEAM_IMC )
+		return imcVar
+
+	return ""
+}
+
+int function NPCWarBudget_GetPlaylistIntOrDefault( string varName, int defaultValue )
+{
+	int value = GetCurrentPlaylistVarInt( varName, NPCWAR_BUDGET_DEFAULT )
+
+	if ( value < 0 )
+		return defaultValue
+
+	return value
+}
+
+void function NPCWarDirector_UpdateStatusMessages( int team )
+{
+	if ( !NPCWarDirector_MessagesEnabled() || GetGameState() != eGameState.Playing )
+		return
+
+	if ( !file.directorAnnounced )
+	{
+		file.directorAnnounced = true
+		NPCWarDirector_BroadcastStatus( "Command net active. Reinforcement updates will come through as the battle shifts.", true )
+	}
+
+	int index = NPCWarDirector_GetTeamIndex( team )
+	int pressureLevel = NPCWarDirector_GetPressureLevelForTeam( team )
+	int previousPressureLevel = file.lastPressureLevel[index]
+
+	if ( previousPressureLevel != pressureLevel )
+	{
+		file.lastPressureLevel[index] = pressureLevel
+
+		if ( previousPressureLevel != -1 || pressureLevel > 0 )
+			NPCWarDirector_BroadcastStatus( NPCWarDirector_GetPressureMessage( team, pressureLevel ) )
+	}
+
+	int dampeningLevel = NPCWarDirector_GetAllyDampeningLevelForTeam( team )
+	int previousDampeningLevel = file.lastDampeningLevel[index]
+
+	if ( previousDampeningLevel != dampeningLevel )
+	{
+		file.lastDampeningLevel[index] = dampeningLevel
+
+		if ( previousDampeningLevel != -1 || dampeningLevel > 0 )
+			NPCWarDirector_BroadcastStatus( NPCWarDirector_GetDampeningMessage( team, dampeningLevel ) )
+	}
+}
+
+void function NPCWarDirector_BroadcastStatus( string message, bool force = false )
+{
+	if ( !force && Time() < file.nextDirectorStatusMessageTime )
+		return
+
+	file.nextDirectorStatusMessageTime = Time() + NPCWAR_DIRECTOR_STATUS_MESSAGE_COOLDOWN
+	print( message )
+
+	foreach ( entity player in GetPlayerArray() )
+	{
+		if ( IsValid( player ) )
+			NSSendInfoMessageToPlayer( player, message )
+	}
+}
+
+string function NPCWarDirector_GetPressureMessage( int team, int pressureLevel )
+{
+	string teamName = NPCWarDirector_GetTeamName( team )
+
+	if ( pressureLevel <= 0 )
+		return teamName + " reinforcement levels have stabilized."
+	if ( pressureLevel == 1 )
+		return teamName + " is falling behind. They're sending increased reinforcements."
+	if ( pressureLevel == 2 )
+		return teamName + " is under pressure. They're committing additional squads."
+	if ( pressureLevel == 3 )
+		return teamName + " is losing ground. Heavy reinforcements are moving in."
+
+	return teamName + " is collapsing. Command is flooding the field with reinforcements."
+}
+
+string function NPCWarDirector_GetDampeningMessage( int team, int dampeningLevel )
+{
+	string teamName = NPCWarDirector_GetTeamName( team )
+
+	if ( dampeningLevel <= 0 )
+		return teamName + " reinforcement flow has been restored."
+	if ( dampeningLevel == 1 )
+		return teamName + " is winning this fight behind a high-impact Pilot. Command is reducing reinforcements to spare resources."
+
+	return teamName + " has battlefield control behind a high-impact Pilot. Command is holding reserves back to spare resources."
+}
+
+string function NPCWarDirector_GetTeamName( int team )
+{
+	if ( team == TEAM_MILITIA )
+		return "Militia"
+	if ( team == TEAM_IMC )
+		return "IMC"
+
+	return "Team " + string( team )
+}
+
+int function NPCWarDirector_GetTeamIndex( int team )
+{
+	return team == TEAM_MILITIA ? 0 : 1
+}
+
+int function NPCWarDirector_GetOtherTeam( int team )
+{
+	return team == TEAM_MILITIA ? TEAM_IMC : TEAM_MILITIA
+}
+#endif

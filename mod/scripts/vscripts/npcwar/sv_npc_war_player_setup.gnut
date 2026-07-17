@@ -1,0 +1,212 @@
+untyped
+
+global function NPCWarPlayerSetup_Init
+
+void function NPCWarPlayerSetup_Init()
+{
+	npcWarMode = true
+	npcWarPilotMode = true
+	npcWarSpawnOverride = GetConVarString( "NPCWAR_CUSTOM_SPAWNING" ) == "true"
+
+	if ( !npcWarSupportedGameMode )
+		NPCWarMode_Init()
+
+	SetLoadoutGracePeriodEnabled( false )
+	PrecacheModel( $"models/humans/grunts/imc_grunt_shield_captain.mdl" )
+
+	AddCallback_OnPlayerRespawned( OnPlayerRespawned )
+	AddCallback_OnPlayerGetsNewPilotLoadout( OnPlayerChangeLoadout )
+	AddCallback_OnPlayerKilled( StartKillerOutline )
+	AddCallback_OnNPCKilled( DropNPCGrenade )
+
+	AddSpawnCallback( "npc_soldier", PilotConfig )
+	AddSpawnCallback( "npc_marvin", MarvinConfig )
+	AddSpawnCallback( "npc_prowler", ProwlerConfig )
+	AddSpawnCallback( "npc_spectre", SpectreConfig )
+	AddSpawnCallback( "npc_stalker", StalkerConfig )
+	AddSpawnCallback( "npc_super_spectre", ReaperConfig )
+	AddSpawnCallback( "npc_titan", TitanConfig )
+	AddSpawnCallback( "npc_gunship", GunshipConfig )
+	AddSpawnCallback( "npc_dropship", DropshipConfig )
+}
+
+void function PilotConfig( entity soldier )
+{
+	if ( !IsValid( soldier ) )
+		return
+
+	soldier.SetMaxHealth( 100 )
+	soldier.SetHealth( 100 )
+	Highlight_SetFriendlyHighlight( soldier, "friendly_ai" )
+	soldier.SetNameVisibleToEnemy( false )
+
+	if ( soldier.GetModelName() == $"models/humans/pilots/sp_medium_reaper_m.mdl" || soldier.GetModelName() == $"models/humans/pilots/sp_medium_stalker_m.mdl" )
+	{
+		soldier.SetMaxHealth( 250 )
+		soldier.SetHealth( 250 )
+	}
+}
+
+void function MarvinConfig( entity soldier )
+{
+	if ( !IsValid( soldier ) )
+		return
+
+	soldier.SetMaxHealth( 50 )
+	soldier.SetHealth( 50 )
+	Highlight_SetFriendlyHighlight( soldier, "friendly_ai" )
+	soldier.SetNameVisibleToEnemy( false )
+}
+
+void function ProwlerConfig( entity soldier )
+{
+	if ( !IsValid( soldier ) )
+		return
+
+	Highlight_SetFriendlyHighlight( soldier, "friendly_ai" )
+	soldier.SetNameVisibleToEnemy( false )
+}
+
+void function SpectreConfig( entity soldier )
+{
+	if ( !IsValid( soldier ) )
+		return
+
+	soldier.SetMaxHealth( 200 )
+	soldier.SetHealth( 200 )
+	Highlight_SetFriendlyHighlight( soldier, "friendly_ai" )
+	soldier.SetNameVisibleToEnemy( false )
+}
+
+void function StalkerConfig( entity soldier )
+{
+	if ( !IsValid( soldier ) )
+		return
+
+	soldier.SetMaxHealth( 250 )
+	soldier.SetHealth( 250 )
+	Highlight_SetFriendlyHighlight( soldier, "friendly_ai" )
+	soldier.SetNameVisibleToEnemy( false )
+}
+
+void function ReaperConfig( entity soldier )
+{
+	if ( IsValid( soldier ) )
+		Highlight_SetFriendlyHighlight( soldier, "fw_friendly" )
+}
+
+void function TitanConfig( entity soldier )
+{
+	if ( IsValid( soldier ) )
+		Highlight_SetFriendlyHighlight( soldier, "fw_friendly" )
+}
+
+void function GunshipConfig( entity soldier )
+{
+	if ( IsValid( soldier ) )
+		Highlight_SetFriendlyHighlight( soldier, "friendly_ai" )
+}
+
+void function DropshipConfig( entity soldier )
+{
+	if ( !IsValid( soldier ) )
+		return
+
+	soldier.SetMaxHealth( 7800 )
+	soldier.SetHealth( 7800 )
+	Highlight_SetFriendlyHighlight( soldier, "fw_friendly_titan" )
+}
+
+void function OnPlayerRespawned( entity player )
+{
+	NPCWarPlayerSetup_ApplyLoadout( player )
+	thread OnPlayerRespawned_Threaded( player )
+}
+
+void function OnPlayerRespawned_Threaded( entity player )
+{
+	if ( !npcWarSpawnOverride )
+	{
+		print( "Skipping pilot dropship spawn sequence" )
+	}
+	else if ( GetGameState() == eGameState.Playing )
+	{
+		print( "NPC War: respawning pilot from dropship" )
+		NPCWar_RespawnInDropShip( player )
+	}
+
+	WaitFrame()
+
+	if ( IsValid( player ) )
+		NPCWarPilotMode_UpdatePlayerTitanMeter( player )
+}
+
+void function StartKillerOutline( entity victim, entity attacker, var damageInfo )
+{
+	if ( IsValid( attacker ) && ( attacker.IsNPC() || attacker.IsPlayer() ) )
+		Highlight_SetDeathRecapHighlight( attacker, "killer_outline" )
+}
+
+void function DropNPCGrenade( entity victim, entity attacker, var damageInfo )
+{
+	if ( !IsValid( victim ) )
+		return
+
+	bool shouldDropGrenade = CoinFlip() && CoinFlip() && CoinFlip()
+	string grenadeClass = ""
+
+	if ( victim.GetClassName() == "npc_soldier" )
+	{
+		if ( victim.GetModelName() == $"models/humans/pilots/sp_medium_reaper_m.mdl" || victim.GetModelName() == $"models/humans/pilots/sp_medium_stalker_m.mdl" )
+			grenadeClass = "mp_weapon_frag_grenade"
+		else if ( victim.GetModelName() == $"models/humans/grunts/imc_grunt_shield_captain.mdl" )
+			grenadeClass = "mp_weapon_grenade_electric_smoke"
+		else if ( victim.GetModelName() == $"models/humans/grunts/imc_grunt_smg.mdl" && victim.GetTeam() == TEAM_MILITIA )
+			grenadeClass = "mp_weapon_grenade_emp"
+		else if ( victim.GetModelName() == $"models/humans/grunts/mlt_grunt_smg.mdl" && victim.GetTeam() == TEAM_IMC )
+			grenadeClass = "mp_weapon_grenade_emp"
+		else if ( shouldDropGrenade )
+			grenadeClass = "mp_weapon_frag_grenade"
+	}
+	else if ( victim.GetClassName() == "npc_spectre" )
+	{
+		if ( victim.GetMaxHealth() == 500 || shouldDropGrenade )
+			grenadeClass = "mp_weapon_grenade_emp"
+	}
+	else if ( victim.GetClassName() == "npc_stalker" && shouldDropGrenade )
+	{
+		grenadeClass = "mp_weapon_grenade_emp"
+	}
+
+	if ( grenadeClass == "" )
+		return
+
+	CreateDroppedGrenade( grenadeClass, victim.GetOrigin() )
+}
+
+void function CreateDroppedGrenade( string weaponName, vector origin )
+{
+	entity grenade = CreateWeaponEntityByNameWithPhysics( weaponName, origin, <0, 0, 0> )
+
+	if ( !IsValid( grenade ) )
+		return
+
+	grenade.SetMods( ["grunt_mode"] )
+	Highlight_SetOwnedHighlight( grenade, "weapon_drop_active" )
+	Highlight_SetNeutralHighlight( grenade, "weapon_drop_normal" )
+}
+
+void function OnPlayerChangeLoadout( entity player, PilotLoadoutDef p )
+{
+	NPCWarPlayerSetup_ApplyLoadout( player )
+}
+
+void function NPCWarPlayerSetup_ApplyLoadout( entity player )
+{
+	if ( !IsValid( player ) )
+		return
+
+	Highlight_SetFriendlyHighlight( player, "fw_friendly" )
+	player.SetNameVisibleToEnemy( false )
+	NPCWarPilotMode_ApplyPlayerSettings( player )
+}

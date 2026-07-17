@@ -1,0 +1,226 @@
+untyped
+global function NPCWarDropPodSpawn_Init
+
+global function SpawnFromDroppod
+global function NPCWar_SpawnPlayerInDropPod
+
+struct DroppodStruct
+{
+	entity door
+	bool openDoor = false
+	int numGuys = 0
+	int flags = 0
+}
+
+struct {
+	array< entity > droppods
+} file
+
+struct {
+	entity intermissionCam
+	array<entity> droppodSpawns
+
+} droppod
+
+void function NPCWarDropPodSpawn_Init()
+{
+	#if SERVER
+	AddSpawnCallback( "info_spawnpoint_droppod_start", AddDroppodSpawn )
+	//AddCallback_OnRoundEndCleanup( CleanupSpawningDropPods )
+	#endif
+}
+
+void function SpawnFromDroppod( entity player )
+{
+	if ( GetGameState() == eGameState.Playing )
+	{
+		thread SpawnFromDroppod_Threaded( player )
+	}
+}
+
+entity function getValidNode( entity player )
+{
+	int team = player.GetTeam()
+	array< entity > spawnPoint = SpawnPoints_GetDropPod()
+	for ( int i = 0; i < 20; i++ ) //20 tries before it gives something random
+		{
+			
+			entity node = spawnPoint[ GetSpawnPointIndex( spawnPoint, team ) ]
+
+			if ( PlayerCanTeleportHere( player, node.GetOrigin() + < 0,0,100 >) && IsPointOutOfBounds( node.GetOrigin() + < 0,0,100 > ) == false)
+				return node
+		}
+	entity node = spawnPoint[ GetSpawnPointIndex( spawnPoint, team ) ]
+}
+
+void function SpawnFromDroppod_Threaded( entity player )
+{
+	if( IsValid(player) )
+	{
+		/*
+		entity podSpawn
+		if ( droppod.droppodSpawns.len() != 0 )
+			podSpawn = droppod.droppodSpawns.getrandom()
+		else
+			podSpawn = SpawnPoints_GetPilot().getrandom()
+		*/
+		array< entity > points = SpawnPoints_GetDropPod()
+		entity node = getValidNode( player )
+		
+		NPCWar_SpawnPlayerInDropPod( player, node.GetOrigin(), node.GetAngles(), 15 )
+	}
+}
+
+void function CleanupSpawningDropPods()
+{
+	#if SERVER
+	foreach ( entity pod in file.droppods )
+		pod.Destroy()
+	
+	file.droppods.clear()
+	#endif
+}
+
+void function NPCWar_SpawnPlayerInDropPod( entity player, vector targetOrigin, vector angles, float destructionTime = -1 )
+{
+	#if SERVER
+	if( IsValid( player ) )
+	{
+		entity pod = CreateDropPod( targetOrigin, angles )
+		
+		file.droppods.append( pod )
+		svGlobal.levelEnt.EndSignal( "CleanUpEntitiesForRoundEnd" )
+		
+		entity camera = CreateEntity( "point_viewcontrol" )
+		vector podloaction = pod.GetOrigin() + Vector( 0, 0, 3000 )
+		vector cameraAngles = pod.GetAngles()
+		camera.SetOrigin( pod.GetOrigin() + Vector( 0, 0, 300 ) )
+		camera.SetAngles( Vector ( 90, -180, 0 ) )
+		camera.SetParent( pod )
+
+		if ( !IsAlive( player ) )
+			player.RespawnPlayer( null )
+
+		if( IsValid( pod ) )
+		{
+			player.SetOrigin( pod.GetOrigin() )
+			player.SetAngles( pod.GetAngles() )
+			player.SetParent( pod )
+		}
+
+		if( IsValid( player ) )
+		{
+			player.FreezeControlsOnServer()
+			AddCinematicFlag( player, CE_FLAG_HIDE_MAIN_HUD )
+			player.SetViewEntity( camera, true )
+			player.kv.VisibilityFlags = ENTITY_VISIBLE_TO_NOBODY
+			player.isSpawning = true
+		}
+		
+		// wait for this
+		LaunchAnimDropPod( pod, "pod_testpath", targetOrigin, angles )
+
+		
+		DroppodStruct droppodData
+		droppodData.door = CreateDropPodDoor( pod )
+		//pod.Anim_Play( "idle" ) Sets door behind the drop pod for some reason
+		
+
+		//WaitFrame()
+		if( IsValid( player ) && GamePlaying() )
+		{
+			player.ClearParent()
+			player.ClearViewEntity()
+			player.UnfreezeControlsOnServer()
+			RemoveCinematicFlag( player, CE_FLAG_HIDE_MAIN_HUD )
+			player.kv.VisibilityFlags = ENTITY_VISIBLE_TO_EVERYONE
+		}
+		else if ( IsValid( player ) && GetGameState() == eGameState.Epilogue)
+		{
+			player.ClearParent()
+			player.ClearViewEntity()
+			player.UnfreezeControlsOnServer()
+			RemoveCinematicFlag( player, CE_FLAG_HIDE_MAIN_HUD )
+			player.kv.VisibilityFlags = ENTITY_VISIBLE_TO_EVERYONE
+		}
+		
+		
+		
+		// wait a frame, otherwise this won't properly work
+		
+		// Old respawn code previously commented out
+		/*
+		WaitFrame()
+		vector doorPos = pod.GetAttachmentOrigin( pod.LookupAttachment( "hatch" ) )
+		
+		if( IsValid(player) )
+		{
+			vector viewAngles = doorPos - player.GetOrigin()
+			viewAngles.x = 3.0
+			
+			player.SetAngles( viewAngles )
+		}
+		*/
+
+		// Handles door without the random-ass error mentioned above (im better coder than respawn)
+		float doorDelayTime = 0.6
+		wait doorDelayTime
+
+		droppodData.openDoor = true
+		pod.Signal( "OpenDoor" )
+
+		if ( DropPodDoorInGround( pod ) )
+		{
+			droppodData.door.Destroy()
+		}
+		else
+		{
+			//Opendoor function rewritten for coolness
+			entity door = droppodData.door
+			door.ClearParent()
+			door.SetVelocity( door.GetForwardVector() * 500 )
+			EmitSoundOnEntity( pod, "explo_fraggrenade_impact_3p" )
+			//EmitSoundOnEntity( pod, "droppod_door_02" ) //unknown sound despite being in files
+		}
+		
+
+		if ( destructionTime != -1 && GamePlaying() )
+		{
+			wait destructionTime
+			pod.Dissolve( ENTITY_DISSOLVE_NORMAL, < 0, 0, 0 >, 0 )
+			
+			file.droppods.remove( file.droppods.find( pod ) )
+			
+			if ( IsValid( droppodData.door ) )
+				droppodData.door.Dissolve( ENTITY_DISSOLVE_CORE, Vector( 0, 0, 0 ), 500 )
+			
+
+			EmitSoundAtPosition( TEAM_UNASSIGNED, pod.GetOrigin(), "droppod_dissolve" )
+		}
+	}
+	#endif
+}
+
+void function AddDroppodSpawn( entity spawn )
+{
+	droppod.droppodSpawns.append( spawn )
+}
+
+int function GetSpawnPointIndex( array< entity > points, int team )
+{
+	entity zone = DecideSpawnZone_Generic( points, team )
+	
+	if ( IsValid( zone ) )
+	{
+		// 20 Tries to get a random point close to the zone
+		for ( int i = 0; i < 20; i++ )
+		{
+			int index = RandomInt( points.len() )
+		
+			if ( Distance2D( points[ index ].GetOrigin(), zone.GetOrigin() ) < 6000 )
+				return index
+		}
+	}
+	
+	return RandomInt( points.len() )
+}

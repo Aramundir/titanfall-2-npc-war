@@ -1,0 +1,29 @@
+WeaponData
+{
+	Mods
+	{
+		pas_ordnance_pack
+		{
+		}
+		bc_satchel_refill
+		{
+		}
+		burn_mod_satchel
+		{
+		}
+		spree_lvl1_satchel
+		{
+		}
+		spree_lvl2_satchel
+		{
+		}
+		spree_lvl3_satchel
+		{
+		}
+		grunt_mode
+		{
+			"ammo_per_shot"					"200"
+			"regen_ammo_refill_rate"		"*0"
+		}
+	}
+}

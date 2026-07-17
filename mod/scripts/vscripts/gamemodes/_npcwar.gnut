@@ -1,0 +1,115 @@
+global function NPCWarMode_Init
+global function NPCWar_CalculateScore
+global function NPCWar_SendScoreInfo
+global function NPCWar_AddProgressionScore
+global function NPCWar_GetScoreValue
+global function NPCWar_GivePoints
+
+global bool npcWarMode = false
+global bool npcWarPilotMode = false
+global bool npcWarSupportedGameMode = false
+global bool npcWarSpawnOverride = false
+
+void function NPCWarMode_Init()
+{
+	AddCallback_OnNPCKilled( NPCWar_GivePoints )
+	AddCallback_OnPlayerKilled( NPCWar_GivePoints )
+	NPCWarPilotMode_ApplyBoostAvailability()
+	NPCWarPilotMode_PrepareTitanAvailability()
+}
+
+int function NPCWar_CalculateScore( entity player )
+{
+	return player.GetPlayerGameStat( PGS_ASSAULT_SCORE )
+}
+
+void function NPCWar_SendScoreInfo( entity player, int addition = 0, bool showingAddition = false )
+{
+	// NPC War does not use Grunt Mode's class-point HUD popups.
+}
+
+void function NPCWar_AddProgressionScore( entity player, int score )
+{
+	// NPC War keeps pilot loadouts and has no class progression ladder.
+}
+
+int function NPCWar_GetScoreValue( entity victim, entity attacker, var damageInfo )
+{
+	if ( !IsValid( victim ) )
+		return 0
+
+	int score = 0
+
+	if ( victim.IsPlayer() )
+	{
+		if ( victim.IsTitan() )
+			score = 0
+		else
+			score = NPCWarPilotMode_PlayerPilotDeathScore()
+	}
+
+	if ( victim.GetClassName() == "npc_marvin" )
+		score = 0
+
+	if ( victim.GetClassName() == "npc_prowler" )
+		score = 8
+
+	if ( victim.GetClassName() == "npc_stalker" )
+		score = 3
+
+	if ( victim.GetClassName() == "npc_spectre" )
+	{
+		if ( victim.GetMaxHealth() == 500 )
+			score = 6
+		else
+			score = 2
+	}
+
+	if ( victim.GetClassName() == "npc_super_spectre" )
+		score = 10
+
+	if ( victim.GetClassName() == "npc_dropship" )
+		score = 8
+
+	if ( victim.GetClassName() == "npc_soldier" )
+	{
+		if ( victim.GetModelName() == $"models/humans/pilots/sp_medium_reaper_m.mdl" || victim.GetModelName() == $"models/humans/pilots/sp_medium_stalker_m.mdl" )
+			score = 8
+		else if ( victim.GetModelName() == $"models/humans/grunts/imc_grunt_shield_captain.mdl" )
+			score = 5
+		else if ( victim.GetModelName() == $"models/humans/grunts/imc_grunt_smg.mdl" && victim.GetTeam() == TEAM_MILITIA )
+			score = 4
+		else if ( victim.GetModelName() == $"models/humans/grunts/mlt_grunt_smg.mdl" && victim.GetTeam() == TEAM_IMC )
+			score = 4
+		else
+			score = 1
+	}
+
+	if ( victim.GetClassName() == "npc_drone" )
+		score = 1
+
+	if ( victim.GetClassName() == "npc_turret_sentry" )
+		score = 3
+
+	if ( victim.GetClassName() == "npc_gunship" || victim.GetModelName() == $"models/vehicle/straton/straton_imc_gunship_01.mdl" )
+		score = 10
+
+	if ( victim.IsTitan() && victim.GetBossPlayer() != attacker )
+		score += 20
+
+	return score
+}
+
+void function NPCWar_GivePoints( entity victim, entity attacker, var damageInfo )
+{
+	if ( !IsValid( victim ) || !IsValid( attacker ) || victim == attacker || GetGameState() != eGameState.Playing || !attacker.IsPlayer() )
+		return
+
+	int score = NPCWar_GetScoreValue( victim, attacker, damageInfo )
+
+	attacker.AddToPlayerGameStat( PGS_ASSAULT_SCORE, score )
+	thread NPCWar_AddProgressionScore( attacker, score )
+
+	if ( score > 0 )
+		thread NPCWar_SendScoreInfo( attacker, score, true )
+}

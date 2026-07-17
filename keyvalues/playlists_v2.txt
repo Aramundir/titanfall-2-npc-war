@@ -1,0 +1,78 @@
+playlists
+{
+	Gamemodes
+	{
+		aitdm
+		{
+			inherit defaults
+			vars
+			{
+				name "#PL_aitdm"
+				lobbytitle #PL_aitdm_lobby
+				description #PL_aitdm_desc
+				hint #PL_aitdm_hint
+				abbreviation #PL_aitdm_abbr
+				suddendeath_timelimit 2
+				gm_hardcore_settings 0
+				spawn_zone_enabled 0
+				earn_meter_tick_frac 0
+				escalation_enabled 1
+				skyshow_enabled 1
+				riff_allow_npcs 1
+				scorelimit 2500
+				timelimit 25
+				earn_meter_titan_multiplier 100
+				enable_spectre_hacking 0
+				color		"88 220 151 255"
+
+				gamemode_score_hint #GAMEMODE_SCORE_HINT_TDM
+				gamemode_bullet_001	#GAMEMODE_BULLET_TDM_001
+				gamemode_bullet_002	#GAMEMODE_BULLET_TDM_002
+				gamemode_bullet_003	#GAMEMODE_BULLET_TDM_003
+				gamemode_bullet_004	#GAMEMODE_BULLET_TDM_004
+				gamemode_bullet_005	#GAMEMODE_BULLET_TDM_005
+			}
+		}
+	}
+	Playlists
+	{
+		aitdm
+		{
+			inherit defaults
+			vars
+			{
+				name "#PL_aitdm"
+				lobbytitle #PL_aitdm_lobby
+				description #PL_aitdm_desc
+				abbreviation #PL_aitdm_abbr
+				image aitdm
+				mixtape_slot 0
+				visible 1
+			}
+			gamemodes
+			{
+				aitdm
+				{
+					maps
+					{
+						mp_forwardbase_kodai 1
+                        mp_grave 1
+                        mp_homestead 1
+                        mp_thaw 1
+                        mp_black_water_canal 1
+                        mp_eden 1
+                        mp_drydock 1
+                        mp_complex3 1
+                        mp_angel_city 1
+                        mp_colony02 1
+                        mp_glitch 1
+						mp_relic02 1
+						mp_crashsite3 1
+						mp_wargames 1
+						mp_rise 1
+					}
+				}
+			}
+		}
+	}	
+}
