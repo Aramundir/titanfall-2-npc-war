@@ -206,8 +206,8 @@ Director settings:
 
 - `NPC War Director`: master toggle. If disabled, all Director behavior is disabled.
 - `Comeback Infantry`: lets the Director add infantry budget to a team that is behind.
-- `Leader Dampening`: lets the Director reduce infantry budget from a leading team when that lead is being carried by a high-impact player.
-- `Hot Player Dampening`: lets leader dampening react to a player carrying a large share of the leading team's score.
+- `Hot Player Pressure`: adds one extra pressure level against a team with a high-impact player.
+- `Hot Player Dampening`: reduces infantry budget from a high-impact player's team if that team is also leading hard.
 - `Director Messages`: enables or disables in-game Director status messages.
 - `Pressure Infantry Step`: infantry slots added or removed per pressure/dampening level. Default is 4.
 - `Pressure Level 1 Score Gap`: score deficit needed for pressure level 1. Default is 75.
@@ -228,6 +228,8 @@ For each team, pressure is based on that team's score deficit:
 - Behind by Pressure Level 2 gap: pressure level 2.
 - Behind by Pressure Level 3 gap: pressure level 3.
 
+If `Hot Player Pressure` is enabled, pressure can increase by 1 when the opposing team has a player whose personal assault score is at least 40 percent of that opposing team's score. This only starts checking after the opposing team has reached the Pressure Level 1 score gap. The final pressure value is capped at 4, so a hot player can push a level 3 comeback response one step higher.
+
 Pressure affects infantry through `Comeback Infantry`:
 
 ```text
@@ -242,7 +244,7 @@ extra special-unit cap = pressure level * that unit's Pressure Bonus
 
 By default, all special-unit pressure bonuses are 0, so the Director only affects infantry unless configured otherwise.
 
-Leader dampening is separate from comeback pressure. It reduces infantry cap for the leading team only when `Leader Dampening` and `Hot Player Dampening` are both enabled, and that leading team has a player whose personal assault score is at least 40 percent of that team's score.
+Hot Player Dampening is separate from Hot Player Pressure. It never triggers from score lead alone. It only reduces infantry cap when `Hot Player Dampening` is enabled, that team is leading by enough points, and that team has a player whose personal assault score is at least 40 percent of that team's score.
 
 - Leading by the Pressure Level 2 gap gives dampening level 1.
 - Leading by the Pressure Level 3 gap gives dampening level 2.
@@ -251,7 +253,7 @@ Leader dampening is separate from comeback pressure. It reduces infantry cap for
 removed infantry cap = dampening level * Pressure Infantry Step
 ```
 
-Leader dampening does not reduce special-unit caps.
+Hot-player dampening does not reduce special-unit caps.
 
 When `Director Messages` is enabled, the Director can send in-game status messages when reinforcement pressure or dampening changes. Messages are rate-limited so they do not spam constantly.
 
@@ -275,7 +277,7 @@ NPC War groups its sandbox controls under `NPC War` categories and exposes many 
 
 - Director master toggle.
 - Comeback infantry.
-- Leader dampening.
+- Hot player pressure.
 - Hot player dampening.
 - Director messages.
 - Pressure score gaps.

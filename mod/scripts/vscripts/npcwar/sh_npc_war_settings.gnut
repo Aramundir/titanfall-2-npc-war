@@ -8,6 +8,7 @@ global function NPCWarPilotMode_BoostMode
 global function NPCWarDirector_Enabled
 global function NPCWarDirector_EnemyComebackPressureEnabled
 global function NPCWarDirector_AllyDampeningEnabled
+global function NPCWarDirector_HotPlayerPressureEnabled
 global function NPCWarDirector_HotPlayerDampeningEnabled
 global function NPCWarDirector_EscalationNudgingEnabled
 global function NPCWarDirector_EmergencyUnitsEnabled
@@ -38,8 +39,8 @@ const string NPCWAR_SETTINGS_CATEGORY_DIRECTOR = "NPC War - 2 Director"
 const string NPCWAR_SETTINGS_CATEGORY_MATCH = "NPC War - 3 Match Settings"
 const string NPCWAR_SETTINGS_CATEGORY_BUDGET = "NPC War - 4 Reinforcement Budgets"
 const string NPCWAR_DIRECTOR_COMEBACK_INFANTRY_VAR = "npcwar_director_comeback_infantry"
-const string NPCWAR_DIRECTOR_LEADER_DAMPENING_VAR = "npcwar_director_leader_dampening"
-const string NPCWAR_DIRECTOR_HOT_PLAYER_DAMPENING_VAR = "npcwar_director_hot_player_pressure"
+const string NPCWAR_DIRECTOR_HOT_PLAYER_PRESSURE_VAR = "npcwar_director_hot_player_pressure"
+const string NPCWAR_DIRECTOR_HOT_PLAYER_DAMPENING_VAR = "npcwar_director_hot_player_dampening"
 const string NPCWAR_DIRECTOR_MESSAGES_VAR = "npcwar_director_messages"
 const string NPCWAR_DIRECTOR_PRESSURE_STEP_VAR = "npcwar_director_pressure_step"
 const string NPCWAR_DIRECTOR_PRESSURE_1_VAR = "npcwar_director_pressure_1"
@@ -126,7 +127,7 @@ void function NPCWarPilotModeSettings_Init()
 	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_GENERAL, NPCWAR_PLAYER_PILOT_DEATH_SCORE_VAR, string( NPCWAR_PLAYER_PILOT_DEATH_SCORE_DEFAULT ), "Player Pilot Death Score" )
 	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_MODE_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "NPC War Director" )
 	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_COMEBACK_INFANTRY_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Comeback Infantry" )
-	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_LEADER_DAMPENING_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Leader Dampening" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_HOT_PLAYER_PRESSURE_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Hot Player Pressure" )
 	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_HOT_PLAYER_DAMPENING_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Hot Player Dampening" )
 	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_MESSAGES_VAR, [ "#SETTING_DISABLED", "#SETTING_ENABLED" ], "1", "Director Messages" )
 	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_DIRECTOR, NPCWAR_DIRECTOR_PRESSURE_STEP_VAR, string( NPCWAR_DIRECTOR_INFANTRY_BUDGET_STEP_DEFAULT ), "Pressure Infantry Step" )
@@ -238,7 +239,12 @@ bool function NPCWarDirector_EnemyComebackPressureEnabled()
 
 bool function NPCWarDirector_AllyDampeningEnabled()
 {
-	return NPCWarDirector_SettingEnabled( NPCWAR_DIRECTOR_LEADER_DAMPENING_VAR )
+	return NPCWarDirector_HotPlayerDampeningEnabled()
+}
+
+bool function NPCWarDirector_HotPlayerPressureEnabled()
+{
+	return NPCWarDirector_SettingEnabled( NPCWAR_DIRECTOR_HOT_PLAYER_PRESSURE_VAR )
 }
 
 bool function NPCWarDirector_HotPlayerDampeningEnabled()
@@ -506,18 +512,25 @@ int function NPCWarDirector_GetEscalationScore( int scoringTeam, int baseScore )
 
 int function NPCWarDirector_GetPressureLevelForTeam( int team )
 {
-	if ( !NPCWarDirector_EnemyComebackPressureEnabled() )
+	if ( !NPCWarDirector_EnemyComebackPressureEnabled() && !NPCWarDirector_HotPlayerPressureEnabled() )
 		return 0
 
 	int pressureLevel = 0
-	int deficit = GameRules_GetTeamScore( NPCWarDirector_GetOtherTeam( team ) ) - GameRules_GetTeamScore( team )
 
-	if ( deficit >= NPCWarDirector_GetPressureLevel3Gap() )
-		pressureLevel = 3
-	else if ( deficit >= NPCWarDirector_GetPressureLevel2Gap() )
-		pressureLevel = 2
-	else if ( deficit >= NPCWarDirector_GetPressureLevel1Gap() )
-		pressureLevel = 1
+	if ( NPCWarDirector_EnemyComebackPressureEnabled() )
+	{
+		int deficit = GameRules_GetTeamScore( NPCWarDirector_GetOtherTeam( team ) ) - GameRules_GetTeamScore( team )
+
+		if ( deficit >= NPCWarDirector_GetPressureLevel3Gap() )
+			pressureLevel = 3
+		else if ( deficit >= NPCWarDirector_GetPressureLevel2Gap() )
+			pressureLevel = 2
+		else if ( deficit >= NPCWarDirector_GetPressureLevel1Gap() )
+			pressureLevel = 1
+	}
+
+	if ( NPCWarDirector_HotPlayerPressureEnabled() && NPCWarDirector_TeamHasHotPlayer( NPCWarDirector_GetOtherTeam( team ) ) )
+		pressureLevel++
 
 	return minint( pressureLevel, 4 )
 }
@@ -527,7 +540,7 @@ int function NPCWarDirector_GetAllyDampeningLevelForTeam( int team )
 	if ( !NPCWarDirector_AllyDampeningEnabled() )
 		return 0
 
-	if ( !NPCWarDirector_HotPlayerDampeningEnabled() || !NPCWarDirector_TeamHasHotPlayer( team ) )
+	if ( !NPCWarDirector_TeamHasHotPlayer( team ) )
 		return 0
 
 	int lead = GameRules_GetTeamScore( team ) - GameRules_GetTeamScore( NPCWarDirector_GetOtherTeam( team ) )

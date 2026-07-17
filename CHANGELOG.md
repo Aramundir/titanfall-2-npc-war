@@ -4,7 +4,8 @@ This changelog tracks NPC War changes only. Historical fork notes are kept brief
 
 ## Unreleased
 
-- Separated score-based Director pressure from hot-player logic; hot players now gate leader dampening instead of adding comeback pressure to the opposing team.
+- Restored `Hot Player Pressure` as a separate Director option that adds one pressure level against a hot player's team.
+- Replaced the separate `Leader Dampening` option with `Hot Player Dampening`, which reduces infantry budget from a hot player's team if they are leading hard.
 - Simplified player pilot death scoring; `Player Pilot Death Score` is now always a fixed private match setting.
 - Removed the experimental High-Value Target/Field Objectives implementation from the live mod for now; future design notes remain in `docs/future_mode_ideas.md`.
 - Fixed boost inventory use so stacked boosts are popped asynchronously instead of calling the inventory wait path from a weapon-use callback.
@@ -25,7 +26,7 @@ This changelog tracks NPC War changes only. Historical fork notes are kept brief
 - Added player options for Grunt Movement, Titan Availability, Boost Availability, Tactical Ability, Ordnance, Anti-Titan Weapon, and Player Pilot Death Score.
 - Added configurable score thresholds for NPC escalation.
 - Added configurable Militia and IMC reinforcement budgets.
-- Added optional NPC War Director pressure, dampening, hot-player dampening, special-unit pressure bonuses, and status messages.
+- Added optional NPC War Director pressure, hot-player pressure, hot-player dampening, special-unit pressure bonuses, and status messages.
 - Improved Amped Hardpoint NPC objective selection.
 - Added Capture the Flag NPC flag-running, carrier support, flag recovery, and delayed dropped-flag return behavior.
 - Changed Epilogue to care about remaining NPC forces, not only remaining pilots.
