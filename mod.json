@@ -74,11 +74,6 @@
 			"Name": "DISABLE_KILLCAMS",
 			"DefaultValue": "false",
 			"HelpString": "UI Does not update during killcams, so they've been automatically disabled by this mod, if you'd like to re-enable them, I suggest increasing the respawn timer considerably (default true)"
-		},
-		{
-			"Name": "NPCWAR_CUSTOM_SPAWNING",
-			"DefaultValue": "true",
-			"HelpString": "Enables custom spawning mechanisms (Dropships, droppods) (default 'true')"
 		}
 		
 	],

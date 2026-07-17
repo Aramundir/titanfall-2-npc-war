@@ -6,7 +6,7 @@ void function NPCWarPlayerSetup_Init()
 {
 	npcWarMode = true
 	npcWarPilotMode = true
-	npcWarSpawnOverride = GetConVarString( "NPCWAR_CUSTOM_SPAWNING" ) == "true"
+	npcWarSpawnOverride = true
 
 	if ( !npcWarSupportedGameMode )
 		NPCWarMode_Init()
