@@ -197,6 +197,63 @@ What this proves:
 - Camps, patrols, objective defenders, evac attackers, and rival hunters are plausible.
 - The AI is still Respawn AI, so we can steer it but should not expect full behavior-tree authorship.
 
+### Official Northstar NPC And Weapon Utility Docs
+
+Northstar's public docs are useful as an API map, but they do not fully explain the native AI implementation. They should be treated as a checklist of available tools, then verified against local scripts and in-game tests.
+
+Primary references:
+
+- `https://docs.northstar.tf/Modding/reference/respawn/native_server/npc/`
+  - NPC utilities, squads, navigation nodes, navmesh helpers, skit-node helpers, dangerous areas, AIN checks, and spawner lookup helpers.
+- `https://docs.northstar.tf/Modding/reference/respawn/native_server/weapons/`
+  - Explosion helpers, radius damage helpers, weapon despawn timing, impact effect table lookup, and weapon damage calculation.
+- `https://docs.northstar.tf/Modding/reference/respawn/native_server/settings/`
+  - Player settings, weapon info fields, weapon mod lookup, weapon bodygroup helpers, and AI settings lookup.
+
+Useful NPC hooks:
+
+- `UpdateEnemyMemoryFromTeammates()` and `UpdateEnemyMemoryWithinRadius()`
+  - Could help newly spawned squads, specialist drones, or objective units acquire relevant enemies without hard-forcing exact targets.
+- `CreateNPCSquad()`, `GetNPCSquadSize()`, `SetNPCSquadMode()`, and `ScriptGetNPCArrayBySquad()`
+  - Could support future squad debugging, squad cohesion checks, or custom elite-squad behavior.
+- `NavMesh_ClampPointForAI()`, `NavMesh_ClampPointForHull()`, `NavMesh_RandomPositions()`, `NavMesh_RandomPositions_LargeArea()`, and `NavMesh_IsPosReachableForAI()`
+  - Could make future objective markers, reward drops, camps, patrol points, and reinforcement targets safer.
+- `SkitSetDistancesToClosestHarpoints()`, `GetSkitNodeArray_NearPlayers()`, `GetSkitNodeArray_NearHardpoints()`, and `GetSkitNodeArray_NearPos()`
+  - Worth remembering for ambient battlefield behavior, but not proven useful for current NPC War objective logic.
+- `AI_CreateDangerousArea()`, `AI_CreateDangerousArea_Static()`, and `AI_CreateDangerousArea_DamageDef()`
+  - Could make AI avoid marked hazards in future logistics/objective systems.
+- `GetSpawnerArrayByClassName()`, `GetSpawnerArrayByScriptName()`, and `GetSpawnerByScriptName()`
+  - Useful for map-authored spawner research and safer spawn-source selection.
+
+Useful weapon and settings hooks:
+
+- `Weapon_SetDespawnTime()`
+  - Relevant if future field rewards or dropped weapons return.
+- `GetImpactEffectTable()`
+  - Relevant for projectile or explosion experiments.
+- `CalcWeaponDamage()`
+  - Could support future economy pricing, HVT threat estimates, or weapon reward balancing.
+- `GetWeaponInfoFileKeyField_Global()` and `GetWeaponInfoFileKeyField_WithMods_Global()`
+  - Useful for enriching `docs/weapon_inventory.md` with display names, categories, damage fields, icons, and hidden metadata.
+- `GetWeaponMods_Global()`
+  - Useful for enumerating legal weapon mod combinations before spawning reward weapons.
+- `SetBodyGroupsForWeaponConfig()`
+  - Useful if future menus or physical weapon props need to match a specific weapon configuration.
+- `GetPlayerSettingsFieldForClassName_*()` and `Dev_GetPlayerSettingByKeyField_Global()`
+  - Useful for comparing Pilot, Grunt Movement, Titan, and NPC-derived health/model settings.
+- `GetAISettingHullType()`, `Dev_GetAISettingByKeyField_Global()`, and `Dev_GetAISettingAssetByKeyField_Global()`
+  - Useful for custom NPC class research and safer precache/model inspection.
+
+What this adds to future design:
+
+- NPC War probably did not miss a hidden high-level AI director API. The docs expose low-level helpers more than behavior-tree authorship.
+- The best near-term value is safer placement, better squad debugging, better weapon metadata, and lighter-touch AI awareness nudges.
+- Before adding new behavior, prototype one small helper at a time:
+  - A navmesh-safe placement wrapper for future drops/objectives.
+  - A squad debug report using `ScriptGetNPCArrayBySquad()`.
+  - A weapon metadata enrichment pass for `weapon_inventory.md`.
+  - A limited enemy-memory refresh for specialist/drone support behavior.
+
 ### Kill Callbacks, Scoring, And Side Rewards
 
 Northstar and NPC War can observe kills and award separate player stats.
