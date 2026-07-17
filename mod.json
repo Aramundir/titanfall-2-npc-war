@@ -79,6 +79,13 @@
 	],
 	"Scripts": [
 		{
+			"Path": "/npcwar/ui_npc_war_settings_menu.nut",
+			"RunOn": "UI",
+			"UICallback": {
+				"Before": "NPCWarSettingsMenu_Init"
+			}
+		},
+		{
 			"Path": "/npcwar/sh_npc_war_settings.gnut",
 			"RunOn": "MP",
 			"ClientCallback": {

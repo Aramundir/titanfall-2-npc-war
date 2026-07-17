@@ -168,7 +168,7 @@ Default escalation thresholds:
 - Gunships: 300
 - Titans/AI Pilots: 500
 
-These are configurable in `NPC War - 3 Match Settings`.
+These are configurable in `NPC War > Match Settings`.
 
 NPC War removed the inherited Grunt Mode 2 Attrition score-limit and time-limit overrides. Match score limits and time limits now follow Northstar's standard private match `Match` settings instead of being forced by NPC War.
 
@@ -266,9 +266,9 @@ The Director currently does not change escalation thresholds, force emergency un
 
 ## Private Match Settings
 
-NPC War groups its sandbox controls under `NPC War` categories and exposes many values that were previously hardcoded or not player-facing.
+NPC War groups its sandbox controls under a custom `NPC War` submenu in Private Match settings and exposes many values that were previously hardcoded or not player-facing.
 
-### NPC War - 1 Player Options
+### NPC War > Player Options
 
 - `Grunt Movement`: enables or disables grunt-style movement limits for the player.
 - `Titan Availability`: controls player Titan meter behavior.
@@ -279,7 +279,7 @@ NPC War groups its sandbox controls under `NPC War` categories and exposes many 
 - `Anti-Titan Weapon`: enables or removes the player's anti-Titan main weapon slot.
 - `Player Pilot Death Score`: score awarded to the enemy team when the player pilot dies. Default is 20.
 
-### NPC War - 2 Director
+### NPC War > Director
 
 - Director master toggle.
 - Comeback infantry.
@@ -290,7 +290,7 @@ NPC War groups its sandbox controls under `NPC War` categories and exposes many 
 - Infantry pressure step.
 - Optional special-unit pressure bonuses.
 
-### NPC War - 3 Match Settings
+### NPC War > Match Settings
 
 - `Spectres Score`: score threshold for Spectres and Marvins.
 - `Stalkers/Prowlers Score`: score threshold for Stalkers and Prowlers.
@@ -300,7 +300,7 @@ NPC War groups its sandbox controls under `NPC War` categories and exposes many 
 
 Score limits and time limits come from Northstar's standard private match `Match` settings.
 
-### NPC War - 4 Reinforcement Budgets
+### NPC War > Reinforcement Budgets
 
 - Militia/IMC infantry budget.
 - Militia/IMC Reaper budget.
