@@ -26,8 +26,18 @@ global function GetValidIntroDropShipSpawn
 
 global function SetUpNPCWeapons
 global function SetUpSpecialistGrunt
+global function NPCWar_MarkPopulationUnit
+global function NPCWar_GetPopulationCount
+global function NPCWar_GetTitanPopulationCount
 
 const INTRO_DROPSHIP_CUTOFF = 2000
+
+global const NPCWAR_POPULATION_INFANTRY = "infantry"
+global const NPCWAR_POPULATION_REAPER = "reaper"
+global const NPCWAR_POPULATION_PROWLER = "prowler"
+global const NPCWAR_POPULATION_MARVIN = "marvin"
+global const NPCWAR_POPULATION_GUNSHIP = "gunship"
+global const NPCWAR_POPULATION_PILOT = "pilot"
 
 const array<string> SPECIALIST_VALID_DRONETYPES = 
 [ 
@@ -47,6 +57,46 @@ void function AiGameModes_SetNPCWeapons( string npcClass, array<string> weapons 
 	if ( !( npcClass in file.npcWeaponsTable ) )
 		file.npcWeaponsTable[ npcClass ] <- []
 	file.npcWeaponsTable[ npcClass ] = weapons
+}
+
+void function NPCWar_MarkPopulationUnit( entity npc, string populationType )
+{
+	if ( !IsValid( npc ) )
+		return
+
+	if ( "npcWarPopulationType" in npc.s )
+		npc.s.npcWarPopulationType = populationType
+	else
+		npc.s.npcWarPopulationType <- populationType
+}
+
+int function NPCWar_GetPopulationCount( int team, string populationType )
+{
+	int count = 0
+
+	foreach ( entity npc in GetNPCArrayOfTeam( team ) )
+	{
+		if ( !IsValid( npc ) || !IsAlive( npc ) || !( "npcWarPopulationType" in npc.s ) )
+			continue
+
+		if ( expect string( npc.s.npcWarPopulationType ) == populationType )
+			count++
+	}
+
+	return count
+}
+
+int function NPCWar_GetTitanPopulationCount( int team )
+{
+	int count = GetNPCArrayEx( "npc_titan", team, -1, <0,0,0>, -1 ).len()
+
+	foreach ( entity player in GetPlayerArrayOfTeam( team ) )
+	{
+		if ( IsValid( player ) && IsAlive( player ) && player.IsTitan() )
+			count++
+	}
+
+	return count
 }
 
 //------------------------------------------------------
@@ -128,6 +178,8 @@ void function AiGameModes_SpawnDropShip( vector pos, vector rot, int team, int c
 	bool isLeader = true
 	foreach ( guy in guys )
 	{
+		NPCWar_MarkPopulationUnit( guy, NPCWAR_POPULATION_INFANTRY )
+
 		if ( isLeader == true ) // Always has 1 leader per dropship
 		{
 			if ( RandomInt(2) == 1)
@@ -281,6 +333,7 @@ void function AiGameModes_SpawnDropPod( vector pos, vector rot, int team, string
 	{
 		entity npc = CreateNPC( content, team, pos,<0,0,0> )
 		DispatchSpawn( npc )
+		NPCWar_MarkPopulationUnit( npc, NPCWAR_POPULATION_INFANTRY )
 		SetSquad( npc, squadName )
 
 		if ( npc.GetClassName()  == "npc_soldier" && isLeader == true ) // 1/3 chance of each leader, 1/3 chance of no leader
@@ -376,6 +429,7 @@ void function AiGameModes_SpawnReaper( vector pos, vector rot, int team, string 
 		SetSpawnOption_AISettings( reaper, aiSettings )
 
 	DispatchSpawn( reaper )
+	NPCWar_MarkPopulationUnit( reaper, NPCWAR_POPULATION_REAPER )
 
 
 	if ( reaperHandler != null )
@@ -524,6 +578,11 @@ void function AiGameModes_SpawnNPC( vector pos, vector rot, int team, string con
 	waitthread LaunchAnimDropPod( pod, "pod_testpath", pos, rot )
     DispatchSpawn( spawnNpc )
 
+	if ( content == "npc_prowler" )
+		NPCWar_MarkPopulationUnit( spawnNpc, NPCWAR_POPULATION_PROWLER )
+	else if ( content == "npc_marvin" )
+		NPCWar_MarkPopulationUnit( spawnNpc, NPCWAR_POPULATION_MARVIN )
+
     thread DropPodActiveThink( pod )
 }
 
@@ -539,6 +598,7 @@ void function AiGameModes_SpawnGunShip( vector pos, vector rot, int team )
 	entity gunship2 = CreateNPC("npc_gunship", team, spawnpoint, spawnang )
 	Highlight_SetEnemyHighlight( gunship2, "enemy_titan" )
 	DispatchSpawn( gunship2 )
+	NPCWar_MarkPopulationUnit( gunship2, NPCWAR_POPULATION_GUNSHIP )
 	if( RandomInt( 2 ) == 1 )
 	{
 		gunship2.TakeWeaponNow( "mp_weapon_gunship_missile" )
@@ -568,6 +628,7 @@ void function AiGameModes_SpawnPilotCanEmbark( vector pos, vector rot, int team 
 	entity titan = AiGameModes_SpawnTitanForPilot( pilot, pos, rot ) // send titan a little bit later
 	wait 2
 	DispatchSpawn( pilot )
+	NPCWar_MarkPopulationUnit( pilot, NPCWAR_POPULATION_PILOT )
 
 	if( team == TEAM_MILITIA )
 		pilot.SetModel( $"models/humans/pilots/sp_medium_reaper_m.mdl" )
@@ -603,6 +664,8 @@ void function AiGameModes_SpawnPilotCanEmbark( vector pos, vector rot, int team 
 
 	NpcPilotSetPetTitan( pilot, titan )
 	titan.SetTitle( pilot.GetTitle() + "'s Titan" )
+	titan.s.npcWarPilotEmbarkStarted <- false
+	titan.s.npcWarAutonomousFallback <- false
 	titan.WaitSignal( "TitanHotDropComplete" )
 
 	thread NpcPilotRunsToEmbarkTitan( pilot, titan )
@@ -611,6 +674,10 @@ void function AiGameModes_SpawnPilotCanEmbark( vector pos, vector rot, int team 
 	thread ForceStartTitan( titan, pilot )
 	waitthread NpcPilotRunsToEmbarkTitan( pilot, titan )
 
+	if ( !IsAlive( titan ) || titan.s.npcWarAutonomousFallback )
+		return
+
+	titan.s.npcWarPilotEmbarkStarted = true
 	thread NpcPilotEmbarksTitan( pilot, titan )
 
 
@@ -652,28 +719,25 @@ void function AiGameModes_SpawnPilotCanEmbark( vector pos, vector rot, int team 
 
 void function ForceStartTitan( entity titan, entity pilot )
 {
-	wait 10
-	if( IsAlive( pilot ) )
+	wait 15
+
+	if ( !IsAlive( titan ) || titan.GetTitanSoul().soul.seatedNpcPilot.isValid )
+		return
+
+	if ( titan.s.npcWarPilotEmbarkStarted || titan.s.npcWarAutonomousFallback )
+		return
+
+	titan.s.npcWarAutonomousFallback = true
+
+	if ( IsAlive( pilot ) )
 	{
-		if( IsAlive( titan ) )
-		{
-			titan.SetOwner( pilot )
-			NPCFollowsNPC( titan, pilot )
-			pilot.Signal( "ForceStartMove" )
-			thread PilotHandler( pilot )
-			thread PlayAnimGravity( titan, "at_hotdrop_quickstand" )
-		}
+		pilot.Signal( "ForceStartMove" )
+		thread PilotHandler( pilot )
 	}
-	else
-	{
-		if( IsAlive( titan ) )
-		{
-			if( titan.GetTitanSoul().soul.seatedNpcPilot.isValid )
-				return
-			thread PlayAnimGravity( titan, "at_hotdrop_quickstand" )
-			thread TitanHandler( titan )
-		}
-	}
+
+	thread PlayAnimGravity( titan, "at_hotdrop_quickstand" )
+	thread DelayedDestroyBubble( titan )
+	thread TitanHandler( titan )
 }
 
 entity function AiGameModes_SpawnTitanForPilot( entity pilot, vector pos, vector rot )

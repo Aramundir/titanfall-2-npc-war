@@ -197,6 +197,10 @@ Current visible defaults:
 
 If any budget value is set to `-1`, NPC War falls back to the underlying convar/default value for that unit type.
 
+Budgets count only units spawned by NPC War for that population. The infantry budget counts Grunts and their specialist variants, Spectres, and Stalkers; independently budgeted Reapers, Prowlers, Titans, AI Pilots, Marvins, and Gunships do not consume infantry slots. Ability and Boost summons such as Specialist drones and Pet Reapers do not consume NPC War population budgets. Titans are the exception: all living Titans count against the Titan budget, including called, summoned, auto-controlled, and player-controlled Titans.
+
+AI Pilots attempt to reach and embark their assigned Titans after Titanfall. If pathfinding prevents an AI Pilot from reaching its Titan within 15 seconds, the Titan leaves its shield and joins the battle autonomously while the Pilot resumes normal combat behavior.
+
 Infantry reinforcement uses normal dropship-style spawning when the team is only lightly below cap. If a team's living infantry falls far enough below its cap, droppod reinforcement becomes more likely. If the deficit is severe, droppods are prioritized so a team that has been wiped does not sit empty while waiting for dropship cadence.
 
 The droppod refill rules are percentage-based against the current cap, so they scale with custom infantry budgets instead of relying on one fixed number.

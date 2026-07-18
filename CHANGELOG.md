@@ -4,6 +4,8 @@ This changelog tracks NPC War changes only. Historical fork notes are kept brief
 
 ## Unreleased
 
+- Fixed AI Pilot Titans remaining kneeling under their Titanfall shield forever when their assigned Pilot cannot reach them; after a bounded approach window, the Titan now activates autonomously and the Pilot returns to battle.
+- Fixed reinforcement population accounting so special units and summons no longer consume infantry slots; NPC War-spawned special units use their own budgets, while all Titans still count against the Titan budget.
 - Restored `Hot Player Pressure` as a separate Director option that adds one pressure level against a hot player's team.
 - Replaced the separate `Leader Dampening` option with `Hot Player Dampening`, which reduces infantry budget from a hot player's team if they are leading hard.
 - Simplified player pilot death scoring; `Player Pilot Death Score` is now always a fixed private match setting.

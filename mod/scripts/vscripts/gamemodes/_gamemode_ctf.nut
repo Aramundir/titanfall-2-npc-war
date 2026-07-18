@@ -246,10 +246,8 @@ void function Spawner( int team )
 		{
 			Escalate( team )
 
-			// TODO: this should possibly not count scripted npc spawns, probably only the ones spawned by this script
-			array<entity> npcs = GetNPCArrayOfTeam( team )
-			int count = npcs.len()
-			int reaperCount = GetNPCArrayEx( "npc_super_spectre", team, -1, <0,0,0>, -1 ).len()
+			int count = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_INFANTRY )
+			int reaperCount = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_REAPER )
 
 			// REAPERS
 			if ( file.reapers[ index ] )
@@ -291,7 +289,7 @@ void function Spawner( int team )
 				{
 					array< entity > points = SpawnPoints_GetDropPod()
 					entity node = points[ GetSpawnPointIndex( points, team ) ]
-					print("Spawned Drop Pod with " + count + " team NPCS")
+					print( "Spawned Drop Pod for team " + team + " with " + count + "/" + squadLimit + " infantry" )
 					waitthread AiGameModes_SpawnDropPod( node.GetOrigin(), node.GetAngles(), team, ent, SquadHandler )
 				}
 			}
@@ -317,12 +315,12 @@ void function SpawnerExtend( int team )
 		{
 			Escalate( team )
 
-			int marvinCount = GetNPCArrayEx( "npc_marvin", team, -1, <0,0,0>, -1 ).len()
-			int prowlerCount = GetNPCArrayEx( "npc_prowler", team, -1, <0,0,0>, -1 ).len()
+			int marvinCount = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_MARVIN )
+			int prowlerCount = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_PROWLER )
 			int stalkerCount = GetNPCArrayEx( "npc_stalker", team, -1, <0,0,0>, -1 ).len()
-			int gunshipCount = GetNPCArrayEx( "npc_gunship", team, -1, <0,0,0>, -1 ).len()
-	        int titanCount = GetNPCArrayEx( "npc_titan", team, -1, <0,0,0>, -1 ).len()
-	        int pilotCount = GetNPCArrayEx( "npc_soldier", team, -1, <0,0,0>, -1 ).len() + GetNPCArrayEx( "npc_titan", team, -1, <0,0,0>, -1 ).len()
+			int gunshipCount = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_GUNSHIP )
+	        int titanCount = NPCWar_GetTitanPopulationCount( team )
+	        int pilotCount = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_PILOT )
 
 
 	        // GUNSHIPS
