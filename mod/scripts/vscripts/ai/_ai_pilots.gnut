@@ -63,8 +63,34 @@ function AiPilots_Init()
 
 	level.onNpcPilotBecomesTitanCallbacks	<- []
 	level.onNpcTitanBecomesPilotCallbacks	<- []
+	#if NPC_TITAN_PILOT_PROTOTYPE
+	AddCallback_OnTitanDoomed( NPCWar_NpcPilotTitanDoomed )
+	#endif
 
 }
+
+#if NPC_TITAN_PILOT_PROTOTYPE
+void function NPCWar_NpcPilotTitanDoomed( entity titan, var damageInfo )
+{
+	if ( !IsAlive( titan ) || !TitanHasNpcPilot( titan ) )
+		return
+
+	thread NPCWar_NpcPilotEjectsFromDoomedTitan( titan )
+}
+
+void function NPCWar_NpcPilotEjectsFromDoomedTitan( entity titan )
+{
+	titan.EndSignal( "OnDeath" )
+	titan.EndSignal( "OnDestroy" )
+
+	wait RandomFloatRange( 1.5, 4.0 )
+
+	if ( !IsAlive( titan ) || !GetDoomedState( titan ) || !TitanHasNpcPilot( titan ) )
+		return
+
+	thread TitanEjectPlayer( titan )
+}
+#endif
 
 function ScriptCallback_OnNpcPilotBecomesTitan( pilot, titan )
 {

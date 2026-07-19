@@ -530,7 +530,7 @@ entity function AiGameModes_SpawnTitanRandom( vector pos, vector rot, int team, 
 	SetSpawnOption_AISettings( titan, aiset )
 	//SetSpawnOption_Titanfall( titan )
 	//SetSpawnOption_Warpfall( titan )
-	//SetSpawnOption_NPCTitan( titan, TITAN_HENCH )
+	SetSpawnOption_NPCTitan( titan, TITAN_HENCH )
     titan.ai.titanSpawnLoadout.setFile = setfile
     OverwriteLoadoutWithDefaultsForSetFile( titan.ai.titanSpawnLoadout )
 	DispatchSpawn( titan )
@@ -799,6 +799,7 @@ entity function AiGameModes_SpawnTitanForPilot( entity pilot, vector pos, vector
 	thread Reaper_Spawnpoint( pos, pilot.GetTeam(), 5.0 )
 	entity titan = CreateNPC( "npc_titan", pilot.GetTeam(), pos, rot )
 	SetSpawnOption_AISettings( titan, aiset )
+	SetSpawnOption_NPCTitan( titan, TITAN_HENCH )
     titan.ai.titanSpawnLoadout.setFile = setfile
     OverwriteLoadoutWithDefaultsForSetFile( titan.ai.titanSpawnLoadout )
 	DispatchSpawn( titan )

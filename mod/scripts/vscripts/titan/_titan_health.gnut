@@ -400,24 +400,6 @@ bool function ShouldDoomTitan( entity ent, var damageInfo )
 
 bool function HandleKillshot( entity ent, var damageInfo, TitanDamage titanDamage )
 {
-	#if NPC_TITAN_PILOT_PROTOTYPE
-	if ( TitanHasNpcPilot( ent ) ) //an npc titan that was dropped by an npc human
-	{
-		float damage = DamageInfo_GetDamage( damageInfo )
-		int health = ent.GetHealth()
-
-		if ( health - damage <= 0 )
-		{
-			// don't set damage to 0, killing a non-doomed npc titan will not count as a kill!
-			//DamageInfo_SetDamage( damageInfo, 0 )
-			thread WaitForDoomThenEject( ent )
-			//thread TitanEjectPlayer( ent )
-		}
-
-		return true
-	}
-	#endif
-
 	if ( ent.IsPlayer() && ent.IsBuddhaMode() )
 		return false
 
@@ -503,14 +485,6 @@ bool function HandleKillshot( entity ent, var damageInfo, TitanDamage titanDamag
 
 	return false
 }
-
-void function WaitForDoomThenEject( entity titan )
-{
-	wait 0.1
-	if( IsValid( titan ) )
-		thread TitanEjectPlayer( titan )
-}
-
 bool function PlayerHasAutoEject( entity player )
 {
 	if ( player.IsBot() )
