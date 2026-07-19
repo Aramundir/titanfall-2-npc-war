@@ -29,6 +29,14 @@ const float CP_AI_CLOSE_TO_OBJECTIVE_DISTANCE = 1200.0
 const float CP_AI_DISTANCE_PENALTY_PER_1000_UNITS = 18.0
 const float CP_AI_REASSIGN_SCORE_MARGIN = 35.0
 const bool CP_AI_DEBUG_OBJECTIVES = false
+const int CP_AI_TELEMETRY_OFF = 0
+const int CP_AI_TELEMETRY_SUMMARY = 1
+const int CP_AI_TELEMETRY_DETAILED = 2
+const float CP_AI_TELEMETRY_SNAPSHOT_INTERVAL = 10.0
+const int CP_AI_TEST_STRATEGY_UTILITY = 0
+const int CP_AI_TEST_STRATEGY_CURRENT = 1
+const int CP_AI_TEST_STRATEGY_STRONG_SATURATION = 2
+const int CP_AI_TEST_VARIANTS = 24
 
 // Hardpoint objective utility weights. These are intentionally coarse because
 // squads reconsider asynchronously and should converge, not solve the map.
@@ -84,6 +92,57 @@ struct CP_AISquadAssignment
 	bool heavy
 }
 
+struct CP_HardpointDecisionState
+{
+	int owner
+	int cappingTeam
+	float progress
+	float distance
+	int assigned
+	int practicalCoverage
+	int desiredCommitment
+	int ownedCount
+	bool ampingEnabled
+	bool alliedPresent
+	bool enemyPresent
+	bool onlyRemainingUncontrolled
+	bool allPointsEnemyOwned
+	bool current
+}
+
+struct CP_TestHardpoint
+{
+	string name
+	int owner
+	int cappingTeam
+	float progress
+	vector origin
+	bool friendlyPresent
+	bool enemyPresent
+}
+
+struct CP_TestSquad
+{
+	vector origin
+	int currentObjective
+	bool heavy
+}
+
+struct CP_TestScenario
+{
+	string name
+	array<CP_TestHardpoint> points
+	array<CP_TestSquad> squads
+	array<int> requiredCoverage
+	bool allowFullConcentration
+}
+
+struct CP_TestAllocationResult
+{
+	array<int> allocations
+	int switches
+}
+
 struct {
 	bool ampingEnabled = true
 
@@ -91,6 +150,19 @@ struct {
 	array<CP_PlayerStruct> players
 	array<CP_AISquadAssignment> aiSquadAssignments
 	int nextAISquadAssignmentId = 0
+	array<int> aiTelemetryDecisions = [ 0, 0 ]
+	array<int> aiTelemetrySwitches = [ 0, 0 ]
+	array<int> aiTelemetryShadowDisagreements = [ 0, 0 ]
+	array<int> aiTelemetrySnapshots = [ 0, 0 ]
+	array<int> aiTelemetryOwnedPointSamples = [ 0, 0 ]
+	array<int> aiTelemetryFullControlSamples = [ 0, 0 ]
+	array<int> aiTelemetryZeroControlSamples = [ 0, 0 ]
+	array<int> aiTelemetryAmpedOwnedSamples = [ 0, 0 ]
+	array<int> aiTelemetryRequiredCommitments = [ 0, 0 ]
+	array<int> aiTelemetryAssignedCommitmentsMet = [ 0, 0 ]
+	array<int> aiTelemetryPracticalCommitmentsMet = [ 0, 0 ]
+	array<int> aiTelemetrySurplusAssignments = [ 0, 0 ]
+	array<float> aiTelemetryLargestShareTotal = [ 0.0, 0.0 ]
 
 	//GM Stuff
 	// Due to team based escalation everything is an array
@@ -147,6 +219,8 @@ void function GamemodeCP_Init()
 	// ------------------ HARDPOINT
 
 	file.ampingEnabled = GetCurrentPlaylistVarInt( "cp_amped_capture_points", 1 ) == 1
+	if ( GetCurrentPlaylistVarInt( "npcwar_cp_scenario_tests", 0 ) == 1 )
+		CP_RunHardpointScenarioTests()
 
 	RegisterSignal( "HardpointCaptureStart" )
 	ScoreEvent_SetupEarnMeterValuesForMixedModes()
@@ -314,6 +388,7 @@ void function Spawner( int team )
 						entity node = points[ GetSpawnPointIndex( points, team ) ]
 						file.nextDropshipSpawnTime[ index ] = Time() + NPCWAR_DROPSHIP_SPAWN_COOLDOWN
 						file.nextInfantryDispatchTime[ index ] = Time() + NPCWAR_INFANTRY_DISPATCH_COOLDOWN
+						CP_PrintReinforcementTelemetry( team, "dropship", count, squadLimit )
 						Aitdm_SpawnDropShip( node, team )
 						shouldSpawnDropPod = false
 					}
@@ -323,13 +398,21 @@ void function Spawner( int team )
 				{
 					array< entity > points = SpawnPoints_GetDropPod()
 					entity node = points[ GetSpawnPointIndex( points, team ) ]
-					print( "Spawned Drop Pod for team " + team + " with " + count + "/" + squadLimit + " infantry" )
+					CP_PrintReinforcementTelemetry( team, "droppod", count, squadLimit )
 					waitthread AiGameModes_SpawnDropPod( node.GetOrigin(), node.GetAngles(), team, ent, SquadHandler )
 				}
 			}
 		}
 		WaitFrame()
 	}
+}
+
+void function CP_PrintReinforcementTelemetry( int team, string method, int infantryAlive, int infantryCap )
+{
+	if ( CP_GetTelemetryMode() == CP_AI_TELEMETRY_OFF )
+		return
+
+	print( "NPCWAR_REINFORCEMENT time=" + string( Time() ) + " team=" + string( team ) + " method=" + method + " alive=" + string( infantryAlive ) + " cap=" + string( infantryCap ) + " deficit=" + string( infantryCap - infantryAlive ) + " pressure=" + string( NPCWarDirector_GetPressureLevelForTeam( team ) ) + " dampening=" + string( NPCWarDirector_GetAllyDampeningLevelForTeam( team ) ) )
 }
 
 void function Aitdm_SpawnDropShip( entity node, int team )
@@ -690,6 +773,21 @@ vector function CP_GetAIObjectivePoint( int team, vector fromPos, entity objecti
 
 entity function CP_ChooseBestHardpointObjective( int squadId, int team, vector fromPos, entity currentObjective, bool heavy )
 {
+	entity coverageObjective = CP_ChooseRequiredStrategicCommitmentObjective( squadId, team, fromPos )
+	entity utilityObjective = null
+	if ( !IsValid( coverageObjective ) || CP_GetTelemetryMode() != CP_AI_TELEMETRY_OFF )
+		utilityObjective = CP_ChooseUtilityHardpointObjective( squadId, team, fromPos, currentObjective, heavy, false )
+	entity selectedObjective = IsValid( coverageObjective ) ? coverageObjective : utilityObjective
+
+	CP_RecordObjectiveDecision( squadId, team, fromPos, currentObjective, selectedObjective, utilityObjective, heavy )
+	if ( IsValid( selectedObjective ) )
+		return selectedObjective
+
+	return null
+}
+
+entity function CP_ChooseUtilityHardpointObjective( int squadId, int team, vector fromPos, entity currentObjective, bool heavy, bool ignoreReassignMargin )
+{
 	entity bestHardpoint = null
 	float bestScore = -999999.0
 	float currentScore = -999999.0
@@ -701,7 +799,7 @@ entity function CP_ChooseBestHardpointObjective( int squadId, int team, vector f
 
 		float score = CP_ScoreHardpointForSquad( squadId, team, fromPos, hardpoint, currentObjective, heavy )
 
-		if ( CP_AI_DEBUG_OBJECTIVES )
+		if ( CP_GetTelemetryMode() >= CP_AI_TELEMETRY_DETAILED )
 			CP_DebugObjectiveCandidate( squadId, team, fromPos, hardpoint, currentObjective, score )
 
 		if ( IsValid( currentObjective ) && hardpoint.hardpoint == currentObjective )
@@ -717,34 +815,92 @@ entity function CP_ChooseBestHardpointObjective( int squadId, int team, vector f
 	if ( !IsValid( bestHardpoint ) )
 		return null
 
-	if ( IsValid( currentObjective ) && bestHardpoint != currentObjective && currentScore > -999000.0 && bestScore < currentScore + CP_AI_REASSIGN_SCORE_MARGIN )
+	if ( !ignoreReassignMargin && IsValid( currentObjective ) && bestHardpoint != currentObjective && currentScore > -999000.0 && bestScore < currentScore + CP_AI_REASSIGN_SCORE_MARGIN )
 		return currentObjective
 
-	CP_DebugObjectiveDecision( squadId, team, currentObjective, bestHardpoint, bestScore )
+	return bestHardpoint
+}
+
+entity function CP_ChooseRequiredStrategicCommitmentObjective( int squadId, int team, vector fromPos )
+{
+	// With no foothold, any enemy point is useful and squads may mass at the nearest one.
+	if ( CP_GetOwnedHardpointCount( team ) == 0 )
+		return null
+
+	entity bestHardpoint = null
+	float bestNeedScore = -999999.0
+
+	foreach ( HardpointStruct hardpoint in file.hardpoints )
+	{
+		if ( !IsValid( hardpoint.hardpoint ) )
+			continue
+
+		int assigned = CP_GetAssignedSquadsForHardpoint( team, hardpoint.hardpoint, squadId )
+		int desiredCommitment = CP_GetDesiredCommitmentForHardpoint( team, hardpoint )
+
+		if ( assigned >= desiredCommitment )
+			continue
+
+		float needScore = float( desiredCommitment - assigned ) * 1000.0
+
+		if ( hardpoint.hardpoint.GetTeam() == team )
+		{
+			if ( CP_HardpointHasLivingCappersForTeam( hardpoint, GetOtherTeam( team ) ) )
+				needScore += 500.0
+			else if ( file.ampingEnabled && GetHardpointCaptureProgress( hardpoint ) < 2.0 )
+				needScore += 250.0
+		}
+		else if ( CP_HardpointEnemyIsAmping( team, hardpoint ) )
+		{
+			needScore += 400.0
+		}
+		else if ( assigned == 0 )
+		{
+			needScore += 150.0
+		}
+
+		needScore -= Distance2D( fromPos, hardpoint.hardpoint.GetOrigin() ) / 1000.0
+
+		if ( !IsValid( bestHardpoint ) || needScore > bestNeedScore )
+		{
+			bestHardpoint = hardpoint.hardpoint
+			bestNeedScore = needScore
+		}
+	}
+
 	return bestHardpoint
 }
 
 float function CP_ScoreHardpointForSquad( int squadId, int team, vector fromPos, HardpointStruct hardpoint, entity currentObjective, bool heavy )
 {
 	entity hardpointEnt = hardpoint.hardpoint
-	int hardpointTeam = hardpointEnt.GetTeam()
-	int otherTeam = GetOtherTeam( team )
-	float distance = Distance2D( fromPos, hardpointEnt.GetOrigin() )
-	int assigned = CP_GetAssignedSquadsForHardpoint( team, hardpointEnt, squadId )
-	int practicalCoverage = CP_GetPracticalCoverageForHardpoint( team, hardpoint, squadId )
-	int desiredCommitment = CP_GetDesiredCommitmentForHardpoint( team, hardpoint )
-	bool ownedByTeam = hardpointTeam == team
-	bool contestedByEnemy = CP_HardpointHasLivingCappersForTeam( hardpoint, otherTeam )
-	bool alliedPresent = CP_HardpointHasLivingCappersForTeam( hardpoint, team )
-	bool enemyPresent = CP_HardpointHasLivingCappersForTeam( hardpoint, otherTeam )
-	bool onlyRemainingUncontrolled = CP_IsOnlyRemainingUncontrolledHardpoint( team, hardpoint )
-	bool allPointsEnemyOwned = CP_AllHardpointsEnemyOwnedForTeam( team )
-	bool current = IsValid( currentObjective ) && currentObjective == hardpointEnt
+	CP_HardpointDecisionState state
+	state.owner = hardpointEnt.GetTeam()
+	state.cappingTeam = GetHardpointCappingTeam( hardpoint )
+	state.progress = GetHardpointCaptureProgress( hardpoint )
+	state.distance = Distance2D( fromPos, hardpointEnt.GetOrigin() )
+	state.assigned = CP_GetAssignedSquadsForHardpoint( team, hardpointEnt, squadId )
+	state.practicalCoverage = CP_GetPracticalCoverageForHardpoint( team, hardpoint, squadId )
+	state.desiredCommitment = CP_GetDesiredCommitmentForHardpoint( team, hardpoint )
+	state.ownedCount = CP_GetOwnedHardpointCount( team )
+	state.ampingEnabled = file.ampingEnabled
+	state.alliedPresent = CP_HardpointHasLivingCappersForTeam( hardpoint, team )
+	state.enemyPresent = CP_HardpointHasLivingCappersForTeam( hardpoint, GetOtherTeam( team ) )
+	state.onlyRemainingUncontrolled = CP_IsOnlyRemainingUncontrolledHardpoint( team, hardpoint )
+	state.allPointsEnemyOwned = CP_AllHardpointsEnemyOwnedForTeam( team )
+	state.current = IsValid( currentObjective ) && currentObjective == hardpointEnt
+	return CP_ScoreHardpointState( team, state, heavy, false )
+}
+
+float function CP_ScoreHardpointState( int team, CP_HardpointDecisionState state, bool heavy, bool strongerOvercommitmentPenalty )
+{
+	bool ownedByTeam = state.owner == team
+	bool contestedByEnemy = ownedByTeam && state.enemyPresent
 	float score = 0.0
 
-	score -= ( distance / 1000.0 ) * CP_AI_DISTANCE_PENALTY_PER_1000_UNITS
+	score -= ( state.distance / 1000.0 ) * CP_AI_DISTANCE_PENALTY_PER_1000_UNITS
 
-	if ( allPointsEnemyOwned && !alliedPresent && !CP_HardpointCaptureNearlyCompleteForTeam( team, hardpoint ) )
+	if ( state.allPointsEnemyOwned && !state.alliedPresent && !CP_HardpointStateCaptureNearlyCompleteForTeam( team, state ) )
 	{
 		score += CP_AI_SCORE_ENEMY_POINT
 		return score
@@ -756,27 +912,27 @@ float function CP_ScoreHardpointForSquad( int squadId, int team, vector fromPos,
 		{
 			score += CP_AI_SCORE_OWNED_CONTESTED
 
-			if ( distance <= CP_AI_NEAR_RESPONSE_DISTANCE )
+			if ( state.distance <= CP_AI_NEAR_RESPONSE_DISTANCE )
 				score += CP_AI_SCORE_NEAR_DEFENSE_RESPONSE
 
-			if ( practicalCoverage < desiredCommitment )
+			if ( state.practicalCoverage < state.desiredCommitment )
 				score += CP_AI_SCORE_UNDERCOVERED_DEFENSE
 		}
-		else if ( file.ampingEnabled && GetHardpointCaptureProgress( hardpoint ) < 2.0 )
+		else if ( state.ampingEnabled && state.progress < 2.0 )
 		{
 			score += CP_AI_SCORE_NEEDS_AMPING
 
-			if ( practicalCoverage == 0 )
+			if ( state.practicalCoverage == 0 )
 				score += CP_AI_SCORE_UNCOVERED_AMP
 
-			if ( GetHardpointCaptureProgress( hardpoint ) >= 1.0 )
+			if ( state.progress >= 1.0 )
 				score += CP_AI_SCORE_PARTIAL_AMP
 		}
 		else
 		{
 			score += CP_AI_SCORE_SAFE_OWNED
 
-			if ( practicalCoverage == 0 )
+			if ( state.practicalCoverage == 0 )
 				score += CP_AI_SCORE_UNCOVERED_SAFE
 			else
 				score -= CP_AI_SCORE_REDUNDANT_SAFE_PENALTY
@@ -784,18 +940,18 @@ float function CP_ScoreHardpointForSquad( int squadId, int team, vector fromPos,
 	}
 	else
 	{
-		if ( onlyRemainingUncontrolled )
+		if ( state.onlyRemainingUncontrolled )
 		{
 			score += CP_AI_SCORE_ONLY_UNCONTROLLED
 		}
-		else if ( CP_HardpointEnemyIsAmping( team, hardpoint ) )
+		else if ( CP_HardpointStateEnemyIsAmping( team, state ) )
 		{
 			score += CP_AI_SCORE_ENEMY_AMPING
 
-			if ( distance <= CP_AI_NEAR_RESPONSE_DISTANCE )
+			if ( state.distance <= CP_AI_NEAR_RESPONSE_DISTANCE )
 				score += CP_AI_SCORE_NEAR_ENEMY_AMPING
 		}
-		else if ( hardpointTeam == TEAM_UNASSIGNED )
+		else if ( state.owner == TEAM_UNASSIGNED )
 		{
 			score += CP_AI_SCORE_NEUTRAL_POINT
 		}
@@ -804,36 +960,39 @@ float function CP_ScoreHardpointForSquad( int squadId, int team, vector fromPos,
 			score += CP_AI_SCORE_ENEMY_POINT
 		}
 
-		if ( assigned == 0 )
+		if ( state.assigned == 0 )
 			score += CP_AI_SCORE_NO_ASSIGNMENT
 
-		if ( alliedPresent )
+		if ( state.alliedPresent )
 			score += CP_AI_SCORE_ALLIED_PRESENT
 
-		if ( enemyPresent )
+		if ( state.enemyPresent )
 			score += CP_AI_SCORE_ENEMY_PRESENT
 
-		if ( CP_HardpointCaptureNearlyCompleteForTeam( team, hardpoint ) )
+		if ( CP_HardpointStateCaptureNearlyCompleteForTeam( team, state ) )
 			score += CP_AI_SCORE_NEARLY_COMPLETE
 
-		if ( CP_GetOwnedHardpointCount( team ) == 0 )
+		if ( state.ownedCount == 0 )
 			score += CP_AI_SCORE_NO_OWNED_POINTS
 	}
 
-	if ( !onlyRemainingUncontrolled && assigned >= desiredCommitment )
-		score -= float( assigned - desiredCommitment + 1 ) * CP_AI_SCORE_SATURATION_PENALTY
+	if ( ( !state.onlyRemainingUncontrolled || strongerOvercommitmentPenalty ) && state.assigned >= state.desiredCommitment )
+	{
+		float saturationPenalty = strongerOvercommitmentPenalty ? CP_AI_SCORE_SATURATION_PENALTY * 2.0 : CP_AI_SCORE_SATURATION_PENALTY
+		score -= float( state.assigned - state.desiredCommitment + 1 ) * saturationPenalty
+	}
 
-	if ( current )
+	if ( state.current )
 	{
 		score += CP_AI_SCORE_CURRENT_OBJECTIVE
 
-		if ( distance <= CP_AI_CLOSE_TO_OBJECTIVE_DISTANCE )
+		if ( state.distance <= CP_AI_CLOSE_TO_OBJECTIVE_DISTANCE )
 			score += CP_AI_SCORE_CURRENT_CLOSE
 
-		if ( CP_HardpointCaptureNearlyCompleteForTeam( team, hardpoint ) )
+		if ( CP_HardpointStateCaptureNearlyCompleteForTeam( team, state ) )
 			score += CP_AI_SCORE_CURRENT_NEARLY_COMPLETE
 
-		if ( ownedByTeam && contestedByEnemy && practicalCoverage <= desiredCommitment )
+		if ( ownedByTeam && contestedByEnemy && state.practicalCoverage <= state.desiredCommitment )
 			score += CP_AI_SCORE_CURRENT_CRITICAL_DEFENSE
 	}
 
@@ -841,6 +1000,23 @@ float function CP_ScoreHardpointForSquad( int squadId, int team, vector fromPos,
 		score += CP_AI_SCORE_HEAVY_UNIT
 
 	return score
+}
+
+bool function CP_HardpointStateEnemyIsAmping( int team, CP_HardpointDecisionState state )
+{
+	int enemyTeam = GetOtherTeam( team )
+	return state.ampingEnabled && state.owner == enemyTeam && state.cappingTeam == enemyTeam && state.progress > 1.0 && state.progress < 2.0
+}
+
+bool function CP_HardpointStateCaptureNearlyCompleteForTeam( int team, CP_HardpointDecisionState state )
+{
+	if ( state.cappingTeam != team )
+		return false
+	if ( state.owner == TEAM_UNASSIGNED && state.progress >= 0.75 )
+		return true
+	if ( state.owner == GetOtherTeam( team ) && state.progress <= 0.25 )
+		return true
+	return state.owner == team && state.ampingEnabled && state.progress >= 1.75 && state.progress < 2.0
 }
 
 bool function CP_HardpointHasLivingCappersForTeam( HardpointStruct hardpoint, int team )
@@ -916,19 +1092,26 @@ int function CP_GetPracticalCoverageForHardpoint( int team, HardpointStruct hard
 int function CP_GetDesiredCommitmentForHardpoint( int team, HardpointStruct hardpoint )
 {
 	int hardpointTeam = hardpoint.hardpoint.GetTeam()
+	bool contested = CP_HardpointHasLivingCappersForTeam( hardpoint, GetOtherTeam( team ) )
+	bool enemyAmping = CP_HardpointEnemyIsAmping( team, hardpoint )
+	float progress = GetHardpointCaptureProgress( hardpoint )
+	return CP_GetDesiredCommitmentForState( team, hardpointTeam, contested, enemyAmping, progress, file.ampingEnabled )
+}
 
+int function CP_GetDesiredCommitmentForState( int team, int hardpointTeam, bool contested, bool enemyAmping, float progress, bool ampingEnabled )
+{
 	if ( hardpointTeam == team )
 	{
-		if ( CP_HardpointHasLivingCappersForTeam( hardpoint, GetOtherTeam( team ) ) )
+		if ( contested )
 			return 2
 
-		return 1
+		if ( ampingEnabled && progress < 2.0 )
+			return 1
+
+		return 0
 	}
 
-	if ( CP_IsOnlyRemainingUncontrolledHardpoint( team, hardpoint ) )
-		return 99
-
-	if ( CP_HardpointEnemyIsAmping( team, hardpoint ) )
+	if ( enemyAmping )
 		return 2
 
 	return 1
@@ -1025,9 +1208,440 @@ bool function CP_HardpointCaptureNearlyCompleteForTeam( int team, HardpointStruc
 	return false
 }
 
+int function CP_GetTelemetryMode()
+{
+	int mode = GetCurrentPlaylistVarInt( "npcwar_cp_telemetry", CP_AI_TELEMETRY_OFF )
+	if ( mode < CP_AI_TELEMETRY_OFF || mode > CP_AI_TELEMETRY_DETAILED )
+		return CP_AI_TELEMETRY_OFF
+
+	return mode
+}
+
+int function CP_GetTelemetryTeamIndex( int team )
+{
+	return team == TEAM_IMC ? 0 : 1
+}
+
+string function CP_GetTelemetryHardpointName( entity hardpoint )
+{
+	return IsValid( hardpoint ) ? GetHardpointGroup( hardpoint ) : "none"
+}
+
+void function CP_RecordObjectiveDecision( int squadId, int team, vector fromPos, entity currentObjective, entity selectedObjective, entity utilityObjective, bool heavy )
+{
+	int mode = CP_GetTelemetryMode()
+	if ( mode == CP_AI_TELEMETRY_OFF )
+		return
+
+	int index = CP_GetTelemetryTeamIndex( team )
+	file.aiTelemetryDecisions[index]++
+
+	if ( IsValid( currentObjective ) && IsValid( selectedObjective ) && currentObjective != selectedObjective )
+		file.aiTelemetrySwitches[index]++
+
+	if ( IsValid( selectedObjective ) && IsValid( utilityObjective ) && selectedObjective != utilityObjective )
+		file.aiTelemetryShadowDisagreements[index]++
+
+	if ( mode < CP_AI_TELEMETRY_DETAILED )
+		return
+
+	print( "NPCWAR_CP_DECISION time=" + string( Time() ) + " team=" + string( team ) + " squad=" + string( squadId ) + " heavy=" + string( heavy ) + " current=" + CP_GetTelemetryHardpointName( currentObjective ) + " selected=" + CP_GetTelemetryHardpointName( selectedObjective ) + " utility_shadow=" + CP_GetTelemetryHardpointName( utilityObjective ) + " x=" + string( fromPos.x ) + " y=" + string( fromPos.y ) )
+}
+
+void function CP_HardpointTelemetryThink()
+{
+	while ( GamePlayingOrSuddenDeath() )
+	{
+		CP_PrintHardpointTelemetrySnapshot()
+		wait CP_AI_TELEMETRY_SNAPSHOT_INTERVAL
+	}
+
+	CP_PrintHardpointTelemetrySnapshot()
+	CP_PrintHardpointTelemetryMatchSummary()
+}
+
+void function CP_PrintHardpointTelemetrySnapshot()
+{
+	foreach ( int team in [ TEAM_IMC, TEAM_MILITIA ] )
+	{
+		int index = CP_GetTelemetryTeamIndex( team )
+		int activeSquads = 0
+		foreach ( CP_AISquadAssignment assignment in file.aiSquadAssignments )
+		{
+			if ( assignment.team == team && IsValid( assignment.anchor ) && IsAlive( assignment.anchor ) )
+				activeSquads++
+		}
+
+		int owned = 0
+		int ampedOwned = 0
+		int required = 0
+		int assignedMet = 0
+		int practicalMet = 0
+		int totalAssigned = 0
+		int largestAssignment = 0
+		int surplus = 0
+		string points = ""
+		foreach ( HardpointStruct hardpoint in file.hardpoints )
+		{
+			if ( !IsValid( hardpoint.hardpoint ) )
+				continue
+
+			int assigned = CP_GetAssignedSquadsForHardpoint( team, hardpoint.hardpoint, -1 )
+			int practical = CP_GetPracticalCoverageForHardpoint( team, hardpoint, -1 )
+			int desired = CP_GetDesiredCommitmentForHardpoint( team, hardpoint )
+			if ( hardpoint.hardpoint.GetTeam() == team )
+			{
+				owned++
+				if ( GetHardpointCaptureProgress( hardpoint ) >= 2.0 )
+					ampedOwned++
+			}
+			if ( desired > 0 )
+			{
+				required++
+				if ( assigned >= desired )
+					assignedMet++
+				if ( practical >= desired )
+					practicalMet++
+			}
+			totalAssigned += assigned
+			largestAssignment = maxint( largestAssignment, assigned )
+			surplus += maxint( 0, assigned - desired )
+			points += CP_GetTelemetryHardpointName( hardpoint.hardpoint ) + ":owner=" + string( hardpoint.hardpoint.GetTeam() ) + ",cap=" + string( GetHardpointCappingTeam( hardpoint ) ) + ",progress=" + string( GetHardpointCaptureProgress( hardpoint ) ) + ",assigned=" + string( assigned ) + ",practical=" + string( practical ) + ",desired=" + string( desired ) + ";"
+		}
+
+		float largestShare = totalAssigned > 0 ? float( largestAssignment ) / float( totalAssigned ) : 0.0
+		file.aiTelemetrySnapshots[index]++
+		file.aiTelemetryOwnedPointSamples[index] += owned
+		if ( owned == 3 )
+			file.aiTelemetryFullControlSamples[index]++
+		if ( owned == 0 )
+			file.aiTelemetryZeroControlSamples[index]++
+		file.aiTelemetryAmpedOwnedSamples[index] += ampedOwned
+		file.aiTelemetryRequiredCommitments[index] += required
+		file.aiTelemetryAssignedCommitmentsMet[index] += assignedMet
+		file.aiTelemetryPracticalCommitmentsMet[index] += practicalMet
+		file.aiTelemetrySurplusAssignments[index] += surplus
+		file.aiTelemetryLargestShareTotal[index] += largestShare
+
+		int enemyTeam = team == TEAM_IMC ? TEAM_MILITIA : TEAM_IMC
+		print( "NPCWAR_CP_SNAPSHOT time=" + string( Time() ) + " team=" + string( team ) + " score=" + string( GameRules_GetTeamScore( team ) ) + " enemy_score=" + string( GameRules_GetTeamScore( enemyTeam ) ) + " infantry_cap=" + string( NPCWarDirector_GetSquadSpawnLimitForTelemetry( team ) ) + " pressure=" + string( NPCWarDirector_GetPressureLevelForTeam( team ) ) + " dampening=" + string( NPCWarDirector_GetAllyDampeningLevelForTeam( team ) ) + " squads=" + string( activeSquads ) + " owned=" + string( owned ) + " amped_owned=" + string( ampedOwned ) + " required=" + string( required ) + " assigned_met=" + string( assignedMet ) + " practical_met=" + string( practicalMet ) + " surplus=" + string( surplus ) + " largest_share=" + string( largestShare ) + " decisions=" + string( file.aiTelemetryDecisions[index] ) + " switches=" + string( file.aiTelemetrySwitches[index] ) + " shadow_disagreements=" + string( file.aiTelemetryShadowDisagreements[index] ) + " points=" + points )
+	}
+}
+
+void function CP_PrintHardpointTelemetryMatchSummary()
+{
+	foreach ( int team in [ TEAM_IMC, TEAM_MILITIA ] )
+	{
+		int index = CP_GetTelemetryTeamIndex( team )
+		int snapshots = file.aiTelemetrySnapshots[index]
+		if ( snapshots == 0 )
+			continue
+
+		float averageOwned = float( file.aiTelemetryOwnedPointSamples[index] ) / float( snapshots )
+		float averageAmpedOwned = float( file.aiTelemetryAmpedOwnedSamples[index] ) / float( snapshots )
+		float assignedCoverage = file.aiTelemetryRequiredCommitments[index] > 0 ? float( file.aiTelemetryAssignedCommitmentsMet[index] ) / float( file.aiTelemetryRequiredCommitments[index] ) : 1.0
+		float practicalCoverage = file.aiTelemetryRequiredCommitments[index] > 0 ? float( file.aiTelemetryPracticalCommitmentsMet[index] ) / float( file.aiTelemetryRequiredCommitments[index] ) : 1.0
+		float averageLargestShare = file.aiTelemetryLargestShareTotal[index] / float( snapshots )
+		int enemyTeam = team == TEAM_IMC ? TEAM_MILITIA : TEAM_IMC
+
+		print( "NPCWAR_CP_MATCH_SUMMARY team=" + string( team ) + " final_score=" + string( GameRules_GetTeamScore( team ) ) + " enemy_score=" + string( GameRules_GetTeamScore( enemyTeam ) ) + " snapshots=" + string( snapshots ) + " avg_owned=" + string( averageOwned ) + " avg_amped_owned=" + string( averageAmpedOwned ) + " full_control=" + string( file.aiTelemetryFullControlSamples[index] ) + " zero_control=" + string( file.aiTelemetryZeroControlSamples[index] ) + " assigned_coverage=" + string( assignedCoverage ) + " practical_coverage=" + string( practicalCoverage ) + " surplus=" + string( file.aiTelemetrySurplusAssignments[index] ) + " avg_largest_share=" + string( averageLargestShare ) + " decisions=" + string( file.aiTelemetryDecisions[index] ) + " switches=" + string( file.aiTelemetrySwitches[index] ) + " shadow_disagreements=" + string( file.aiTelemetryShadowDisagreements[index] ) )
+	}
+}
+
+void function CP_RunHardpointScenarioTests()
+{
+	int failures = 0
+	int cases = 0
+	failures += CP_TestDesiredCommitment( "owned_amp_complete", 0, CP_GetDesiredCommitmentForState( TEAM_IMC, TEAM_IMC, false, false, 2.0, true ) )
+	failures += CP_TestDesiredCommitment( "owned_needs_amp", 1, CP_GetDesiredCommitmentForState( TEAM_IMC, TEAM_IMC, false, false, 1.0, true ) )
+	failures += CP_TestDesiredCommitment( "owned_contested", 2, CP_GetDesiredCommitmentForState( TEAM_IMC, TEAM_IMC, true, false, 2.0, true ) )
+	failures += CP_TestDesiredCommitment( "enemy_unoccupied", 1, CP_GetDesiredCommitmentForState( TEAM_IMC, TEAM_MILITIA, false, false, 2.0, true ) )
+	failures += CP_TestDesiredCommitment( "enemy_amping", 2, CP_GetDesiredCommitmentForState( TEAM_IMC, TEAM_MILITIA, false, true, 1.5, true ) )
+	failures += CP_TestDesiredCommitment( "neutral", 1, CP_GetDesiredCommitmentForState( TEAM_IMC, TEAM_UNASSIGNED, false, false, 0.0, true ) )
+	failures += CP_TestDesiredCommitment( "mirror_owned_needs_amp", 1, CP_GetDesiredCommitmentForState( TEAM_MILITIA, TEAM_MILITIA, false, false, 1.0, true ) )
+	failures += CP_TestDesiredCommitment( "mirror_enemy_amping", 2, CP_GetDesiredCommitmentForState( TEAM_MILITIA, TEAM_IMC, false, true, 1.5, true ) )
+	cases += 8
+
+	for ( int i = 0; i < 200; i++ )
+	{
+		int ownerRoll = RandomInt( 3 )
+		int owner = ownerRoll == 0 ? TEAM_IMC : ownerRoll == 1 ? TEAM_MILITIA : TEAM_UNASSIGNED
+		bool contested = RandomInt( 2 ) == 1
+		bool enemyAmping = RandomInt( 2 ) == 1
+		float progress = RandomFloatRange( 0.0, 2.0 )
+		int desired = CP_GetDesiredCommitmentForState( TEAM_IMC, owner, contested, enemyAmping, progress, true )
+		if ( desired < 0 || desired > 2 )
+			failures++
+	}
+	cases += 200
+
+	array<CP_TestScenario> scenarios = CP_BuildHardpointTestScenarios()
+	foreach ( CP_TestScenario scenario in scenarios )
+	{
+		array<int> strategyFailures = [ 0, 0, 0 ]
+		array<int> concentrationFailures = [ 0, 0, 0 ]
+		array<int> allocationTotals = [ 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+		array<int> switchTotals = [ 0, 0, 0 ]
+
+		for ( int variant = 0; variant < CP_AI_TEST_VARIANTS; variant++ )
+		{
+			for ( int strategy = CP_AI_TEST_STRATEGY_UTILITY; strategy <= CP_AI_TEST_STRATEGY_STRONG_SATURATION; strategy++ )
+			{
+				CP_TestAllocationResult result = CP_SimulateHardpointScenario( scenario, strategy, variant )
+				bool coveragePassed = CP_TestAllocationMeetsCoverage( result.allocations, scenario.requiredCoverage )
+				bool concentrationPassed = scenario.allowFullConcentration || !CP_TestAllocationIsFullyConcentrated( result.allocations )
+
+				if ( !coveragePassed )
+					strategyFailures[strategy]++
+				if ( !concentrationPassed )
+					concentrationFailures[strategy]++
+
+				for ( int pointIndex = 0; pointIndex < 3; pointIndex++ )
+					allocationTotals[strategy * 3 + pointIndex] += result.allocations[pointIndex]
+				switchTotals[strategy] += result.switches
+			}
+			cases++
+		}
+
+		failures += strategyFailures[CP_AI_TEST_STRATEGY_CURRENT]
+		failures += concentrationFailures[CP_AI_TEST_STRATEGY_CURRENT]
+		CP_PrintScenarioComparison( scenario, strategyFailures, concentrationFailures, allocationTotals, switchTotals )
+	}
+
+	print( "NPCWAR_CP_TESTS cases=" + string( cases ) + " failures=" + string( failures ) )
+}
+
+array<CP_TestScenario> function CP_BuildHardpointTestScenarios()
+{
+	array<CP_TestScenario> scenarios
+	array<CP_TestSquad> squads = CP_BuildTestSquads( 8 )
+
+	scenarios.append( CP_CreateTestScenario( "own_ac_unamped", [ CP_CreateTestPoint( "A", TEAM_IMC, TEAM_IMC, 1.2, < -3000, 0, 0> ), CP_CreateTestPoint( "B", TEAM_MILITIA, TEAM_UNASSIGNED, 2.0, <0, 0, 0> ), CP_CreateTestPoint( "C", TEAM_IMC, TEAM_IMC, 1.1, <3000, 0, 0> ) ], squads, [ 1, 1, 1 ], false ) )
+	scenarios.append( CP_CreateTestScenario( "own_ac_amped", [ CP_CreateTestPoint( "A", TEAM_IMC, TEAM_IMC, 2.0, < -3000, 0, 0> ), CP_CreateTestPoint( "B", TEAM_MILITIA, TEAM_UNASSIGNED, 2.0, <0, 0, 0> ), CP_CreateTestPoint( "C", TEAM_IMC, TEAM_IMC, 2.0, <3000, 0, 0> ) ], squads, [ 0, 1, 0 ], true ) )
+	scenarios.append( CP_CreateTestScenario( "enemy_ac_amping", [ CP_CreateTestPoint( "A", TEAM_MILITIA, TEAM_MILITIA, 1.4, < -3000, 0, 0> ), CP_CreateTestPoint( "B", TEAM_IMC, TEAM_IMC, 2.0, <0, 0, 0> ), CP_CreateTestPoint( "C", TEAM_MILITIA, TEAM_MILITIA, 1.6, <3000, 0, 0> ) ], squads, [ 2, 0, 2 ], false ) )
+	scenarios.append( CP_CreateTestScenario( "owned_a_contested", [ CP_CreateTestPointWithPresence( "A", TEAM_IMC, TEAM_MILITIA, 1.8, < -3000, 0, 0>, true, true ), CP_CreateTestPoint( "B", TEAM_IMC, TEAM_IMC, 2.0, <0, 0, 0> ), CP_CreateTestPoint( "C", TEAM_MILITIA, TEAM_UNASSIGNED, 2.0, <3000, 0, 0> ) ], squads, [ 2, 0, 1 ], false ) )
+	scenarios.append( CP_CreateTestScenario( "no_foothold", [ CP_CreateTestPoint( "A", TEAM_MILITIA, TEAM_MILITIA, 2.0, < -3000, 0, 0> ), CP_CreateTestPoint( "B", TEAM_MILITIA, TEAM_MILITIA, 2.0, <0, 0, 0> ), CP_CreateTestPoint( "C", TEAM_MILITIA, TEAM_MILITIA, 2.0, <3000, 0, 0> ) ], squads, [ 0, 0, 0 ], true ) )
+	scenarios.append( CP_CreateTestScenario( "all_owned_b_contested", [ CP_CreateTestPoint( "A", TEAM_IMC, TEAM_IMC, 2.0, < -3000, 0, 0> ), CP_CreateTestPointWithPresence( "B", TEAM_IMC, TEAM_MILITIA, 1.7, <0, 0, 0>, true, true ), CP_CreateTestPoint( "C", TEAM_IMC, TEAM_IMC, 2.0, <3000, 0, 0> ) ], squads, [ 0, 2, 0 ], true ) )
+	return scenarios
+}
+
+CP_TestHardpoint function CP_CreateTestPoint( string name, int owner, int cappingTeam, float progress, vector origin )
+{
+	return CP_CreateTestPointWithPresence( name, owner, cappingTeam, progress, origin, false, false )
+}
+
+CP_TestHardpoint function CP_CreateTestPointWithPresence( string name, int owner, int cappingTeam, float progress, vector origin, bool friendlyPresent, bool enemyPresent )
+{
+	CP_TestHardpoint point
+	point.name = name
+	point.owner = owner
+	point.cappingTeam = cappingTeam
+	point.progress = progress
+	point.origin = origin
+	point.friendlyPresent = friendlyPresent
+	point.enemyPresent = enemyPresent
+	return point
+}
+
+array<CP_TestSquad> function CP_BuildTestSquads( int count )
+{
+	array<CP_TestSquad> squads
+	for ( int i = 0; i < count; i++ )
+	{
+		CP_TestSquad squad
+		squad.origin = <float( ( i % 4 ) * 1400 - 2100 ), float( ( i / 4 ) * 1800 - 900 ), 0>
+		squad.currentObjective = i % 3
+		squad.heavy = i == count - 1
+		squads.append( squad )
+	}
+	return squads
+}
+
+CP_TestScenario function CP_CreateTestScenario( string name, array<CP_TestHardpoint> points, array<CP_TestSquad> squads, array<int> requiredCoverage, bool allowFullConcentration )
+{
+	CP_TestScenario scenario
+	scenario.name = name
+	scenario.points = points
+	scenario.squads = squads
+	scenario.requiredCoverage = requiredCoverage
+	scenario.allowFullConcentration = allowFullConcentration
+	return scenario
+}
+
+CP_TestAllocationResult function CP_SimulateHardpointScenario( CP_TestScenario scenario, int strategy, int variant )
+{
+	CP_TestAllocationResult result
+	result.allocations = [ 0, 0, 0 ]
+	result.switches = 0
+	int squadCount = scenario.squads.len()
+
+	for ( int decision = 0; decision < squadCount; decision++ )
+	{
+		int squadIndex = variant % 2 == 0 ? ( decision + variant ) % squadCount : ( squadCount - 1 - decision + variant ) % squadCount
+		CP_TestSquad squad = scenario.squads[squadIndex]
+		int selected = CP_ChooseSyntheticHardpointObjective( scenario, squad, result.allocations, strategy, variant, squadIndex )
+		result.allocations[selected]++
+		if ( squad.currentObjective >= 0 && squad.currentObjective != selected )
+			result.switches++
+	}
+
+	return result
+}
+
+int function CP_ChooseSyntheticHardpointObjective( CP_TestScenario scenario, CP_TestSquad squad, array<int> allocations, int strategy, int variant, int squadIndex )
+{
+	int ownedCount = 0
+	int uncontrolledCount = 0
+	bool allEnemyOwned = true
+	foreach ( CP_TestHardpoint point in scenario.points )
+	{
+		if ( point.owner == TEAM_IMC )
+			ownedCount++
+		else
+			uncontrolledCount++
+		if ( point.owner != TEAM_MILITIA )
+			allEnemyOwned = false
+	}
+
+	if ( strategy == CP_AI_TEST_STRATEGY_CURRENT && ownedCount > 0 )
+	{
+		int requiredPoint = CP_ChooseSyntheticRequiredCommitment( scenario, squad, allocations, variant, squadIndex )
+		if ( requiredPoint >= 0 )
+			return requiredPoint
+	}
+
+	int bestPoint = 0
+	float bestScore = -999999.0
+	float currentScore = -999999.0
+	for ( int pointIndex = 0; pointIndex < scenario.points.len(); pointIndex++ )
+	{
+		CP_HardpointDecisionState state = CP_BuildSyntheticDecisionState( scenario, squad, allocations, pointIndex, ownedCount, uncontrolledCount, allEnemyOwned, variant, squadIndex )
+		float score = CP_ScoreHardpointState( TEAM_IMC, state, squad.heavy, strategy == CP_AI_TEST_STRATEGY_STRONG_SATURATION )
+		if ( pointIndex == squad.currentObjective )
+			currentScore = score
+		if ( score > bestScore )
+		{
+			bestPoint = pointIndex
+			bestScore = score
+		}
+	}
+
+	if ( squad.currentObjective >= 0 && bestPoint != squad.currentObjective && bestScore < currentScore + CP_AI_REASSIGN_SCORE_MARGIN )
+		return squad.currentObjective
+	return bestPoint
+}
+
+int function CP_ChooseSyntheticRequiredCommitment( CP_TestScenario scenario, CP_TestSquad squad, array<int> allocations, int variant, int squadIndex )
+{
+	int bestPoint = -1
+	float bestNeed = -999999.0
+	for ( int pointIndex = 0; pointIndex < scenario.points.len(); pointIndex++ )
+	{
+		CP_TestHardpoint point = scenario.points[pointIndex]
+		bool contested = point.owner == TEAM_IMC && point.enemyPresent
+		CP_HardpointDecisionState tempState
+		tempState.owner = point.owner
+		tempState.cappingTeam = point.cappingTeam
+		tempState.progress = point.progress
+		tempState.ampingEnabled = true
+		bool enemyAmping = CP_HardpointStateEnemyIsAmping( TEAM_IMC, tempState )
+		int desired = CP_GetDesiredCommitmentForState( TEAM_IMC, point.owner, contested, enemyAmping, point.progress, true )
+		if ( allocations[pointIndex] >= desired )
+			continue
+
+		float need = float( desired - allocations[pointIndex] ) * 1000.0
+		if ( contested )
+			need += 500.0
+		else if ( point.owner == TEAM_IMC && point.progress < 2.0 )
+			need += 250.0
+		else if ( enemyAmping )
+			need += 400.0
+		else if ( allocations[pointIndex] == 0 )
+			need += 150.0
+		need -= CP_GetSyntheticDistance( squad.origin, point.origin, variant, squadIndex ) / 1000.0
+		if ( need > bestNeed )
+		{
+			bestNeed = need
+			bestPoint = pointIndex
+		}
+	}
+	return bestPoint
+}
+
+CP_HardpointDecisionState function CP_BuildSyntheticDecisionState( CP_TestScenario scenario, CP_TestSquad squad, array<int> allocations, int pointIndex, int ownedCount, int uncontrolledCount, bool allEnemyOwned, int variant, int squadIndex )
+{
+	CP_TestHardpoint point = scenario.points[pointIndex]
+	CP_HardpointDecisionState state
+	state.owner = point.owner
+	state.cappingTeam = point.cappingTeam
+	state.progress = point.progress
+	state.distance = CP_GetSyntheticDistance( squad.origin, point.origin, variant, squadIndex )
+	state.assigned = allocations[pointIndex]
+	state.practicalCoverage = allocations[pointIndex]
+	state.ownedCount = ownedCount
+	state.ampingEnabled = true
+	state.alliedPresent = point.friendlyPresent
+	state.enemyPresent = point.enemyPresent
+	state.onlyRemainingUncontrolled = point.owner != TEAM_IMC && uncontrolledCount == 1
+	state.allPointsEnemyOwned = allEnemyOwned
+	state.current = squad.currentObjective == pointIndex
+	bool contested = point.owner == TEAM_IMC && point.enemyPresent
+	bool enemyAmping = CP_HardpointStateEnemyIsAmping( TEAM_IMC, state )
+	state.desiredCommitment = CP_GetDesiredCommitmentForState( TEAM_IMC, point.owner, contested, enemyAmping, point.progress, true )
+	return state
+}
+
+float function CP_GetSyntheticDistance( vector squadOrigin, vector pointOrigin, int variant, int squadIndex )
+{
+	float jitterX = float( ( variant * 97 + squadIndex * 31 ) % 401 ) - 200.0
+	float jitterY = float( ( variant * 53 + squadIndex * 71 ) % 401 ) - 200.0
+	return Distance2D( squadOrigin + <jitterX, jitterY, 0>, pointOrigin )
+}
+
+bool function CP_TestAllocationMeetsCoverage( array<int> allocations, array<int> requiredCoverage )
+{
+	for ( int i = 0; i < requiredCoverage.len(); i++ )
+	{
+		if ( allocations[i] < requiredCoverage[i] )
+			return false
+	}
+	return true
+}
+
+bool function CP_TestAllocationIsFullyConcentrated( array<int> allocations )
+{
+	int total = 0
+	int maximum = 0
+	foreach ( int allocation in allocations )
+	{
+		total += allocation
+		maximum = maxint( maximum, allocation )
+	}
+	return total > 1 && maximum == total
+}
+
+void function CP_PrintScenarioComparison( CP_TestScenario scenario, array<int> coverageFailures, array<int> concentrationFailures, array<int> allocationTotals, array<int> switchTotals )
+{
+	array<string> names = [ "utility", "current", "strong_saturation" ]
+	for ( int strategy = 0; strategy < names.len(); strategy++ )
+	{
+		float divisor = float( CP_AI_TEST_VARIANTS )
+		print( "NPCWAR_CP_SCENARIO name=" + scenario.name + " strategy=" + names[strategy] + " runs=" + string( CP_AI_TEST_VARIANTS ) + " coverage_failures=" + string( coverageFailures[strategy] ) + " concentration_failures=" + string( concentrationFailures[strategy] ) + " avg_A=" + string( float( allocationTotals[strategy * 3] ) / divisor ) + " avg_B=" + string( float( allocationTotals[strategy * 3 + 1] ) / divisor ) + " avg_C=" + string( float( allocationTotals[strategy * 3 + 2] ) / divisor ) + " avg_switches=" + string( float( switchTotals[strategy] ) / divisor ) )
+	}
+}
+
+int function CP_TestDesiredCommitment( string name, int expected, int actual )
+{
+	if ( expected == actual )
+		return 0
+
+	print( "NPCWAR_CP_TEST_FAIL name=" + name + " expected=" + string( expected ) + " actual=" + string( actual ) )
+	return 1
+}
+
 void function CP_DebugObjectiveDecision( int squadId, int team, entity currentObjective, entity selectedObjective, float score )
 {
-	if ( !CP_AI_DEBUG_OBJECTIVES )
+	if ( !CP_AI_DEBUG_OBJECTIVES && CP_GetTelemetryMode() < CP_AI_TELEMETRY_DETAILED )
 		return
 
 	string currentName = IsValid( currentObjective ) ? GetHardpointGroup( currentObjective ) : "none"
@@ -1037,7 +1651,7 @@ void function CP_DebugObjectiveDecision( int squadId, int team, entity currentOb
 
 void function CP_DebugObjectiveCandidate( int squadId, int team, vector fromPos, HardpointStruct hardpoint, entity currentObjective, float score )
 {
-	if ( !CP_AI_DEBUG_OBJECTIVES )
+	if ( !CP_AI_DEBUG_OBJECTIVES && CP_GetTelemetryMode() < CP_AI_TELEMETRY_DETAILED )
 		return
 
 	entity hardpointEnt = hardpoint.hardpoint
@@ -1416,6 +2030,8 @@ float function GetHardpointCaptureProgress( HardpointStruct hardpoint )
 void function StartHardpointThink()
 {
 	thread TrackChevronStates()
+	if ( CP_GetTelemetryMode() >= CP_AI_TELEMETRY_SUMMARY )
+		thread CP_HardpointTelemetryThink()
 
 	foreach ( HardpointStruct hardpoint in file.hardpoints )
 		thread HardpointThink( hardpoint )

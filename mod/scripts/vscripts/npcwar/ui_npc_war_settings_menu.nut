@@ -5,6 +5,7 @@ const string NPCWAR_CATEGORY_PLAYER_OPTIONS = "#PL_npcwar_player_options"
 const string NPCWAR_CATEGORY_DIRECTOR = "#PL_npcwar_director"
 const string NPCWAR_CATEGORY_MATCH_SETTINGS = "#PL_npcwar_match_settings"
 const string NPCWAR_CATEGORY_REINFORCEMENT_BUDGETS = "#PL_npcwar_reinforcement_budgets"
+const string NPCWAR_CATEGORY_DIAGNOSTICS = "#PL_npcwar_diagnostics"
 
 struct
 {
@@ -27,6 +28,9 @@ void function NPCWarSettingsMenu_Init()
 
 		file.sectionLabels.append( "Reinforcement Budgets" )
 		file.sectionCategories.append( NPCWAR_CATEGORY_REINFORCEMENT_BUDGETS )
+
+		file.sectionLabels.append( "Diagnostics" )
+		file.sectionCategories.append( NPCWAR_CATEGORY_DIAGNOSTICS )
 	}
 
 	AddMenu(

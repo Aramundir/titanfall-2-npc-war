@@ -23,6 +23,9 @@ global function NPCWarDirector_EmergencyUnitsEnabled
 	global function NPCWarPilotMode_UnlockPlayerTitanMeter
 	global function NPCWarPilotMode_GetEscalationThresholdForStage
 	global function NPCWarDirector_GetSquadSpawnLimit
+	global function NPCWarDirector_GetSquadSpawnLimitForTelemetry
+	global function NPCWarDirector_GetPressureLevelForTeam
+	global function NPCWarDirector_GetAllyDampeningLevelForTeam
 	global function NPCWarDirector_GetUnitLimit
 	global function NPCWarDirector_GetEscalationScore
 #endif
@@ -40,6 +43,9 @@ const string NPCWAR_SETTINGS_CATEGORY_GENERAL = "#PL_npcwar_player_options"
 const string NPCWAR_SETTINGS_CATEGORY_DIRECTOR = "#PL_npcwar_director"
 const string NPCWAR_SETTINGS_CATEGORY_MATCH = "#PL_npcwar_match_settings"
 const string NPCWAR_SETTINGS_CATEGORY_BUDGET = "#PL_npcwar_reinforcement_budgets"
+const string NPCWAR_SETTINGS_CATEGORY_DIAGNOSTICS = "#PL_npcwar_diagnostics"
+const string NPCWAR_CP_TELEMETRY_VAR = "npcwar_cp_telemetry"
+const string NPCWAR_CP_SCENARIO_TESTS_VAR = "npcwar_cp_scenario_tests"
 const string NPCWAR_DIRECTOR_COMEBACK_INFANTRY_VAR = "npcwar_director_comeback_infantry"
 const string NPCWAR_DIRECTOR_HOT_PLAYER_PRESSURE_VAR = "npcwar_director_hot_player_pressure"
 const string NPCWAR_DIRECTOR_HOT_PLAYER_DAMPENING_VAR = "npcwar_director_hot_player_dampening"
@@ -164,6 +170,8 @@ void function NPCWarPilotModeSettings_Init()
 	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_IMC_MARVIN_BUDGET_VAR, string( NPCWAR_MARVIN_BUDGET_VISIBLE_DEFAULT ), "IMC Marvin Budget" )
 	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_MILITIA_GUNSHIP_BUDGET_VAR, string( NPCWAR_GUNSHIP_BUDGET_VISIBLE_DEFAULT ), "Militia Gunship Budget" )
 	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_IMC_GUNSHIP_BUDGET_VAR, string( NPCWAR_GUNSHIP_BUDGET_VISIBLE_DEFAULT ), "IMC Gunship Budget" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIAGNOSTICS, NPCWAR_CP_TELEMETRY_VAR, [ "Off", "Summary", "Detailed" ], "0", "Hardpoint Telemetry" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIAGNOSTICS, NPCWAR_CP_SCENARIO_TESTS_VAR, [ "Off", "Run Once" ], "0", "Hardpoint Scenario Tests" )
 }
 
 bool function NPCWarPilotMode_GruntMovementEnabled()
@@ -493,13 +501,24 @@ void function NPCWarPilotMode_EnablePlayerTitanMeter( entity player )
 
 int function NPCWarDirector_GetSquadSpawnLimit( int team )
 {
+	return NPCWarDirector_CalculateSquadSpawnLimit( team, true )
+}
+
+int function NPCWarDirector_GetSquadSpawnLimitForTelemetry( int team )
+{
+	return NPCWarDirector_CalculateSquadSpawnLimit( team, false )
+}
+
+int function NPCWarDirector_CalculateSquadSpawnLimit( int team, bool updateMessages )
+{
 	int limit = GetConVarInt( "NPCWAR_SQUADS" ) * 4 - 2
 	limit = NPCWarBudget_ApplyInfantryLimit( team, limit )
 
 	if ( !NPCWarDirector_Enabled() )
 		return maxint( 4, limit )
 
-	NPCWarDirector_UpdateStatusMessages( team )
+	if ( updateMessages )
+		NPCWarDirector_UpdateStatusMessages( team )
 
 	if ( NPCWarDirector_EnemyComebackPressureEnabled() )
 		limit += NPCWarDirector_GetPressureLevelForTeam( team ) * NPCWarDirector_GetPressureInfantryStep()

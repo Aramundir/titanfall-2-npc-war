@@ -314,6 +314,15 @@ Score limits and time limits come from Northstar's standard private match `Match
 - Militia/IMC Marvin budget.
 - Militia/IMC Gunship budget.
 
+### NPC War > Diagnostics
+
+These development tools are new in NPC War and default to off. They do not alter match rules or issue different NPC orders.
+
+- `Hardpoint Telemetry`: `Summary` writes periodic point/assignment snapshots to the Northstar log; `Detailed` also records every squad decision and candidate score.
+- `Hardpoint Scenario Tests`: runs commitment invariants and full-team strategy comparisons once while the mode initializes, then prints scenario reports and a pass/failure total.
+
+Telemetry also evaluates the utility-only objective strategy in shadow mode. The shadow choice is logged for comparison but is never sent to an NPC. See `docs/hardpoint_telemetry.md` for the log format and test workflow.
+
 ## Epilogue
 
 NPC War changes Epilogue to care about remaining forces, not only remaining pilots.
