@@ -596,20 +596,29 @@ void function AddToTitanDamageStat( entity victim, var damageInfo )
 
 void function CheckForAutoTitanDeath( entity victim, entity attacker, var damageInfo )
 {
-	if( !IsValid(victim) || !victim.IsTitan() )
+	if ( !IsValid( victim ) || !victim.IsTitan() || !IsValid( attacker ) )
+		return
+
+	if ( "npcWarTitanKilledCallbackSent" in victim.s )
 		return
 
 	if( !victim.IsPlayer() )
 	{
 		if (GetPetTitanOwner(victim) && GetPetTitanOwner(victim) != attacker)
+		{
+			victim.s.npcWarTitanKilledCallbackSent <- true
 			foreach(player in GetPlayerArray())
 				Remote_CallFunction_NonReplay( player, "ServerCallback_OnTitanKilled", attacker.GetEncodedEHandle(), victim.GetEncodedEHandle(), DamageInfo_GetCustomDamageType( damageInfo ), DamageInfo_GetDamageSourceIdentifier( damageInfo ) )
+		}
 	}
 	else
 	{
 		if (victim != attacker)
+		{
+			victim.s.npcWarTitanKilledCallbackSent <- true
 			foreach(player in GetPlayerArray())
 				Remote_CallFunction_NonReplay( player, "ServerCallback_OnTitanKilled", attacker.GetEncodedEHandle(), victim.GetEncodedEHandle(), DamageInfo_GetCustomDamageType( damageInfo ), DamageInfo_GetDamageSourceIdentifier( damageInfo ) )
+		}
 	}
 }
 

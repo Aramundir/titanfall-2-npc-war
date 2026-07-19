@@ -356,7 +356,7 @@ void function NPCWarPilotMode_PrepareTitanAvailability()
 
 	if ( titanMode == NPCWAR_TITAN_MODE_VANILLA )
 	{
-		Riff_ForceTitanAvailability( eTitanAvailability.Custom )
+		NPCWarPilotMode_EnableCustomTitanAvailability()
 		return
 	}
 
@@ -465,11 +465,17 @@ void function NPCWarPilotMode_UnlockPlayerTitanMeter()
 	if ( NPCWarPilotMode_TitanAvailabilityMode() != NPCWAR_TITAN_MODE_POST_TITAN )
 		return
 
-	Riff_ForceTitanAvailability( eTitanAvailability.Custom )
+	NPCWarPilotMode_EnableCustomTitanAvailability()
 	PlayerEarnMeter_SetEnabled( true )
 
 	foreach ( entity player in GetPlayerArray() )
 		NPCWarPilotMode_EnablePlayerTitanMeter( player )
+}
+
+void function NPCWarPilotMode_EnableCustomTitanAvailability()
+{
+	Riff_ForceTitanAvailability( eTitanAvailability.Custom )
+	svGlobal.titanAvailabilityCheck = IsTitanAvailable
 }
 
 void function NPCWarPilotMode_LockPlayerTitanMeterUntilThreshold( entity player )
