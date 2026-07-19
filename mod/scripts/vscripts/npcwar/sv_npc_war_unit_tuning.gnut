@@ -1,0 +1,90 @@
+untyped
+
+global function NPCWarUnitTuning_Init
+
+const array<string> NPCWAR_TUNABLE_UNIT_CLASSES =
+[
+	"npc_soldier",
+	"npc_spectre",
+	"npc_stalker",
+	"npc_super_spectre",
+	"npc_prowler",
+	"npc_titan"
+]
+
+void function NPCWarUnitTuning_Init()
+{
+	foreach ( string className in NPCWAR_TUNABLE_UNIT_CLASSES )
+	{
+		AddSpawnCallback( className, NPCWarUnitTuning_OnUnitSpawned )
+		AddDamageCallback( className, NPCWarUnitTuning_OnUnitDamaged )
+	}
+
+	AddDamageCallback( "player", NPCWarUnitTuning_OnUnitDamaged )
+}
+
+void function NPCWarUnitTuning_OnUnitSpawned( entity unit )
+{
+	thread NPCWarUnitTuning_ApplyHealthMultiplier( unit )
+}
+
+void function NPCWarUnitTuning_ApplyHealthMultiplier( entity unit )
+{
+	unit.EndSignal( "OnDestroy" )
+	WaitEndFrame()
+
+	if ( !IsAlive( unit ) )
+		return
+
+	string unitType = NPCWarUnitTuning_GetUnitType( unit )
+	if ( unitType == "" )
+		return
+
+	float multiplier = NPCWarUnitTuning_HealthMultiplier( unit.GetTeam(), unitType )
+	if ( multiplier == 1.0 )
+		return
+
+	int oldMaxHealth = unit.GetMaxHealth()
+	if ( oldMaxHealth <= 0 )
+		return
+
+	float healthFraction = float( unit.GetHealth() ) / float( oldMaxHealth )
+	int newMaxHealth = maxint( 1, int( float( oldMaxHealth ) * multiplier ) )
+	int newHealth = maxint( 1, int( float( newMaxHealth ) * healthFraction ) )
+
+	unit.SetMaxHealth( newMaxHealth )
+	unit.SetHealth( minint( newHealth, newMaxHealth ) )
+}
+
+void function NPCWarUnitTuning_OnUnitDamaged( entity victim, var damageInfo )
+{
+	entity attacker = DamageInfo_GetAttacker( damageInfo )
+	if ( !IsValid( attacker ) || !attacker.IsNPC() )
+		return
+
+	string unitType = NPCWarUnitTuning_GetUnitType( attacker )
+	if ( unitType == "" )
+		return
+
+	float multiplier = NPCWarUnitTuning_DamageMultiplier( attacker.GetTeam(), unitType )
+	if ( multiplier == 1.0 )
+		return
+
+	DamageInfo_SetDamage( damageInfo, DamageInfo_GetDamage( damageInfo ) * multiplier )
+}
+
+string function NPCWarUnitTuning_GetUnitType( entity unit )
+{
+	string className = unit.GetClassName()
+
+	if ( className == "npc_soldier" || className == "npc_spectre" || className == "npc_stalker" )
+		return "infantry"
+	if ( className == "npc_super_spectre" )
+		return "reaper"
+	if ( className == "npc_prowler" )
+		return "prowler"
+	if ( className == "npc_titan" )
+		return "titan"
+
+	return ""
+}

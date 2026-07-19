@@ -120,7 +120,14 @@
 			},
             "ServerCallback": {
                 "After": "NPCWarPlayerSetup_Init"
-            }
+			}
+		},
+		{
+			"Path": "/npcwar/sv_npc_war_unit_tuning.gnut",
+			"RunOn": "SERVER && MP",
+			"ServerCallback": {
+				"After": "NPCWarUnitTuning_Init"
+			}
 		},
 		{
 			"Path": "/gamemodes/_npcwar.gnut",

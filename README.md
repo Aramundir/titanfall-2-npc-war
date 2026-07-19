@@ -314,6 +314,21 @@ Score limits and time limits come from Northstar's standard private match `Match
 - Militia/IMC Marvin budget.
 - Militia/IMC Gunship budget.
 
+### NPC War > Unit Tuning
+
+Unit tuning is new in NPC War. Grunt Mode 2's existing health and damage values remain the baseline at `1.0`.
+
+Health and outgoing damage multipliers are configurable independently for Militia and IMC units in four groups:
+
+- Infantry: Grunts and specialist variants, Spectres, Stalkers, and on-foot AI Pilots.
+- Reapers.
+- Prowlers.
+- Titans: autonomous, AI-piloted, and player-controlled Titans use their Titan faction's health multiplier; only NPC-controlled Titan damage is multiplied.
+
+Each multiplier accepts values from `0.1` to `10.0`. Lower values reduce health or damage, while higher values increase them. For example, `0.5` health halves that faction and unit group's durability, while `2.0` damage doubles its outgoing damage.
+
+Player Pilot health and damage are unchanged. Ability and Boost summons, Specialist drones, dropships, gunships, and Marvins are also outside Unit Tuning. Against the player, an NPC's damage setting controls the incoming damage. During NPC-versus-NPC combat, the attacker's damage multiplier and the defender's health multiplier both apply.
+
 ### NPC War > Diagnostics
 
 These development tools are new in NPC War and default to off. They do not alter match rules or issue different NPC orders.

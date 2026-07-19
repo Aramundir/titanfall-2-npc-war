@@ -13,6 +13,8 @@ global function NPCWarDirector_HotPlayerPressureEnabled
 global function NPCWarDirector_HotPlayerDampeningEnabled
 global function NPCWarDirector_EscalationNudgingEnabled
 global function NPCWarDirector_EmergencyUnitsEnabled
+global function NPCWarUnitTuning_HealthMultiplier
+global function NPCWarUnitTuning_DamageMultiplier
 
 #if SERVER
 	global function NPCWarPilotMode_PrepareTitanAvailability
@@ -43,7 +45,24 @@ const string NPCWAR_SETTINGS_CATEGORY_GENERAL = "#PL_npcwar_player_options"
 const string NPCWAR_SETTINGS_CATEGORY_DIRECTOR = "#PL_npcwar_director"
 const string NPCWAR_SETTINGS_CATEGORY_MATCH = "#PL_npcwar_match_settings"
 const string NPCWAR_SETTINGS_CATEGORY_BUDGET = "#PL_npcwar_reinforcement_budgets"
+const string NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING = "#PL_npcwar_unit_tuning"
 const string NPCWAR_SETTINGS_CATEGORY_DIAGNOSTICS = "#PL_npcwar_diagnostics"
+const string NPCWAR_MILITIA_INFANTRY_HEALTH_VAR = "npcwar_militia_infantry_health"
+const string NPCWAR_MILITIA_INFANTRY_DAMAGE_VAR = "npcwar_militia_infantry_damage"
+const string NPCWAR_IMC_INFANTRY_HEALTH_VAR = "npcwar_imc_infantry_health"
+const string NPCWAR_IMC_INFANTRY_DAMAGE_VAR = "npcwar_imc_infantry_damage"
+const string NPCWAR_MILITIA_REAPER_HEALTH_VAR = "npcwar_militia_reaper_health"
+const string NPCWAR_MILITIA_REAPER_DAMAGE_VAR = "npcwar_militia_reaper_damage"
+const string NPCWAR_IMC_REAPER_HEALTH_VAR = "npcwar_imc_reaper_health"
+const string NPCWAR_IMC_REAPER_DAMAGE_VAR = "npcwar_imc_reaper_damage"
+const string NPCWAR_MILITIA_PROWLER_HEALTH_VAR = "npcwar_militia_prowler_health"
+const string NPCWAR_MILITIA_PROWLER_DAMAGE_VAR = "npcwar_militia_prowler_damage"
+const string NPCWAR_IMC_PROWLER_HEALTH_VAR = "npcwar_imc_prowler_health"
+const string NPCWAR_IMC_PROWLER_DAMAGE_VAR = "npcwar_imc_prowler_damage"
+const string NPCWAR_MILITIA_TITAN_HEALTH_VAR = "npcwar_militia_titan_health"
+const string NPCWAR_MILITIA_TITAN_DAMAGE_VAR = "npcwar_militia_titan_damage"
+const string NPCWAR_IMC_TITAN_HEALTH_VAR = "npcwar_imc_titan_health"
+const string NPCWAR_IMC_TITAN_DAMAGE_VAR = "npcwar_imc_titan_damage"
 const string NPCWAR_CP_TELEMETRY_VAR = "npcwar_cp_telemetry"
 const string NPCWAR_CP_SCENARIO_TESTS_VAR = "npcwar_cp_scenario_tests"
 const string NPCWAR_DIRECTOR_COMEBACK_INFANTRY_VAR = "npcwar_director_comeback_infantry"
@@ -115,6 +134,9 @@ const int NPCWAR_TITAN_BUDGET_VISIBLE_DEFAULT = 0
 const int NPCWAR_AI_PILOT_BUDGET_VISIBLE_DEFAULT = 2
 const int NPCWAR_MARVIN_BUDGET_VISIBLE_DEFAULT = 0
 const int NPCWAR_GUNSHIP_BUDGET_VISIBLE_DEFAULT = 0
+const float NPCWAR_UNIT_MULTIPLIER_DEFAULT = 1.0
+const float NPCWAR_UNIT_MULTIPLIER_MIN = 0.1
+const float NPCWAR_UNIT_MULTIPLIER_MAX = 10.0
 const float NPCWAR_DIRECTOR_STATUS_MESSAGE_COOLDOWN = 8.0
 
 struct
@@ -170,8 +192,70 @@ void function NPCWarPilotModeSettings_Init()
 	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_IMC_MARVIN_BUDGET_VAR, string( NPCWAR_MARVIN_BUDGET_VISIBLE_DEFAULT ), "IMC Marvin Budget" )
 	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_MILITIA_GUNSHIP_BUDGET_VAR, string( NPCWAR_GUNSHIP_BUDGET_VISIBLE_DEFAULT ), "Militia Gunship Budget" )
 	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_BUDGET, NPCWAR_IMC_GUNSHIP_BUDGET_VAR, string( NPCWAR_GUNSHIP_BUDGET_VISIBLE_DEFAULT ), "IMC Gunship Budget" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_MILITIA_INFANTRY_HEALTH_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "Militia Infantry Health" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_MILITIA_INFANTRY_DAMAGE_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "Militia Infantry Damage" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_IMC_INFANTRY_HEALTH_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "IMC Infantry Health" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_IMC_INFANTRY_DAMAGE_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "IMC Infantry Damage" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_MILITIA_REAPER_HEALTH_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "Militia Reaper Health" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_MILITIA_REAPER_DAMAGE_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "Militia Reaper Damage" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_IMC_REAPER_HEALTH_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "IMC Reaper Health" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_IMC_REAPER_DAMAGE_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "IMC Reaper Damage" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_MILITIA_PROWLER_HEALTH_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "Militia Prowler Health" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_MILITIA_PROWLER_DAMAGE_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "Militia Prowler Damage" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_IMC_PROWLER_HEALTH_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "IMC Prowler Health" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_IMC_PROWLER_DAMAGE_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "IMC Prowler Damage" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_MILITIA_TITAN_HEALTH_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "Militia Titan Health" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_MILITIA_TITAN_DAMAGE_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "Militia Titan Damage" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_IMC_TITAN_HEALTH_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "IMC Titan Health" )
+	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_IMC_TITAN_DAMAGE_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "IMC Titan Damage" )
 	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIAGNOSTICS, NPCWAR_CP_TELEMETRY_VAR, [ "Off", "Summary", "Detailed" ], "0", "Hardpoint Telemetry" )
 	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIAGNOSTICS, NPCWAR_CP_SCENARIO_TESTS_VAR, [ "Off", "Run Once" ], "0", "Hardpoint Scenario Tests" )
+}
+
+float function NPCWarUnitTuning_HealthMultiplier( int team, string unitType )
+{
+	string varName = NPCWarUnitTuning_GetMultiplierVar( team, unitType, true )
+	if ( varName == "" )
+		return NPCWAR_UNIT_MULTIPLIER_DEFAULT
+
+	return clamp( GetCurrentPlaylistVarFloat( varName, NPCWAR_UNIT_MULTIPLIER_DEFAULT ), NPCWAR_UNIT_MULTIPLIER_MIN, NPCWAR_UNIT_MULTIPLIER_MAX )
+}
+
+float function NPCWarUnitTuning_DamageMultiplier( int team, string unitType )
+{
+	string varName = NPCWarUnitTuning_GetMultiplierVar( team, unitType, false )
+	if ( varName == "" )
+		return NPCWAR_UNIT_MULTIPLIER_DEFAULT
+
+	return clamp( GetCurrentPlaylistVarFloat( varName, NPCWAR_UNIT_MULTIPLIER_DEFAULT ), NPCWAR_UNIT_MULTIPLIER_MIN, NPCWAR_UNIT_MULTIPLIER_MAX )
+}
+
+string function NPCWarUnitTuning_GetMultiplierVar( int team, string unitType, bool health )
+{
+	if ( team == TEAM_MILITIA )
+	{
+		if ( unitType == "infantry" )
+			return health ? NPCWAR_MILITIA_INFANTRY_HEALTH_VAR : NPCWAR_MILITIA_INFANTRY_DAMAGE_VAR
+		if ( unitType == "reaper" )
+			return health ? NPCWAR_MILITIA_REAPER_HEALTH_VAR : NPCWAR_MILITIA_REAPER_DAMAGE_VAR
+		if ( unitType == "prowler" )
+			return health ? NPCWAR_MILITIA_PROWLER_HEALTH_VAR : NPCWAR_MILITIA_PROWLER_DAMAGE_VAR
+		if ( unitType == "titan" )
+			return health ? NPCWAR_MILITIA_TITAN_HEALTH_VAR : NPCWAR_MILITIA_TITAN_DAMAGE_VAR
+	}
+	else if ( team == TEAM_IMC )
+	{
+		if ( unitType == "infantry" )
+			return health ? NPCWAR_IMC_INFANTRY_HEALTH_VAR : NPCWAR_IMC_INFANTRY_DAMAGE_VAR
+		if ( unitType == "reaper" )
+			return health ? NPCWAR_IMC_REAPER_HEALTH_VAR : NPCWAR_IMC_REAPER_DAMAGE_VAR
+		if ( unitType == "prowler" )
+			return health ? NPCWAR_IMC_PROWLER_HEALTH_VAR : NPCWAR_IMC_PROWLER_DAMAGE_VAR
+		if ( unitType == "titan" )
+			return health ? NPCWAR_IMC_TITAN_HEALTH_VAR : NPCWAR_IMC_TITAN_DAMAGE_VAR
+	}
+
+	return ""
 }
 
 bool function NPCWarPilotMode_GruntMovementEnabled()
