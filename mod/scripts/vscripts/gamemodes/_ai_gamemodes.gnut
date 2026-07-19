@@ -736,8 +736,24 @@ void function ForceStartTitan( entity titan, entity pilot )
 	}
 
 	thread PlayAnimGravity( titan, "at_hotdrop_quickstand" )
-	thread DelayedDestroyBubble( titan )
+	thread NPCWar_DestroyUnclaimedTitanBubble( titan )
 	thread TitanHandler( titan )
+}
+
+void function NPCWar_DestroyUnclaimedTitanBubble( entity titan )
+{
+	wait 1
+
+	if ( !IsAlive( titan ) )
+		return
+
+	entity soul = titan.GetTitanSoul()
+	if ( !IsValid( soul ) )
+		return
+
+	entity bubbleShield = soul.soul.bubbleShield
+	if ( IsValid( bubbleShield ) )
+		DestroyBubbleShield( bubbleShield )
 }
 
 entity function AiGameModes_SpawnTitanForPilot( entity pilot, vector pos, vector rot )
