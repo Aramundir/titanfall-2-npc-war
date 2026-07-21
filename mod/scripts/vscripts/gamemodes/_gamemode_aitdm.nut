@@ -72,6 +72,7 @@ void function GamemodeAITdm_Init()
 	}
 
 	ScoreEvent_SetupEarnMeterValuesForMixedModes()
+	SetupGenericTDMChallenge()
 
 	//ClassicMP_ForceDisableEpilogue( true )
 	NPCWarPilotMode_ApplyBoostAvailability()
@@ -119,10 +120,17 @@ void function OnPlayerConnected( entity player )
 
 void function HandleScoreEvent( entity victim, entity attacker, var damageInfo )
 {
-	if ( !( victim != attacker && GetGameState() == eGameState.Playing ) ) //add getowner to this since it crash my game everytime when am trying to deploy a npctitan without a owner
-		return //edited line so ai SHOULD give points
+	if ( victim == attacker || !IsValid( attacker ) || GetGameState() != eGameState.Playing )
+		return
+
+	// Do not award a unit for destroying an NPC it owns, such as a hacked Spectre.
+	if ( victim.GetOwner() == attacker )
+		return
 
 	int score = NPCWar_GetScoreValue( victim, attacker, damageInfo )
+	int scoreLimit = GetScoreLimit_FromPlaylist()
+	if ( scoreLimit > 0 )
+		score = minint( score, maxint( 0, scoreLimit - GameRules_GetTeamScore( attacker.GetTeam() ) ) )
 
 	// make npc able to earn score
 	AddTeamScore( attacker.GetTeam(), score )
