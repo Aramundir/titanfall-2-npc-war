@@ -165,6 +165,7 @@ void function AiGameModes_Init()
 	ProwlerPrecache()
 	PrecacheModel( CAREPACKAGE_MODEL )
 	AddSpawnCallback( "npc_prowler", NPCWarProwlerMinimap_OnSpawned )
+	AddCallback_EntitiesDidLoad( NPCWar_DeduplicateClassicIntroDropshipSpawns )
 
 	// no need since we already got these in _ai_pilots.gnut
 	AddCallback_OnNpcPilotBecomesTitan( OnNpcPilotBecomesTitan )
@@ -172,6 +173,30 @@ void function AiGameModes_Init()
 	RegisterSignal( "ForceStartMove" )
 	//AddCallback_OnNpcPilotBecomesTitan( NpcPilotBecomesTitan )
 	//AddCallback_OnNpcTitanBecomesPilot( NpcTitanBecomesPilot )
+}
+
+void function NPCWar_DeduplicateClassicIntroDropshipSpawns()
+{
+	array<entity> spawnPoints = GetEntArrayByClass_Expensive( "info_spawnpoint_dropship_start" )
+	array<entity> uniqueSpawnPoints
+
+	foreach ( entity spawnPoint in spawnPoints )
+	{
+		bool overlapsExistingPoint = false
+		foreach ( entity uniqueSpawnPoint in uniqueSpawnPoints )
+		{
+			if ( spawnPoint.GetTeam() == uniqueSpawnPoint.GetTeam() && DistanceSqr( spawnPoint.GetOrigin(), uniqueSpawnPoint.GetOrigin() ) < 4096.0 )
+			{
+				overlapsExistingPoint = true
+				break
+			}
+		}
+
+		if ( overlapsExistingPoint )
+			spawnPoint.Destroy()
+		else
+			uniqueSpawnPoints.append( spawnPoint )
+	}
 }
 
 void function NPCWarProwlerMinimap_OnSpawned( entity prowler )
@@ -1368,13 +1393,17 @@ void function ReplaceWeapon( entity guy, string weapon, array<string> mods )
 array<entity> function GetValidIntroDropShipSpawn( array<entity> introNodes )
 {
 	array<entity> introShipSpawns
+	array<entity> dropshipSpawns = GetZiplineDropshipSpawns()
+
+	if ( dropshipSpawns.len() == 0 )
+		return introShipSpawns
 
 	foreach ( node in introNodes )
 	{
-		entity closestNode = GetClosest( GetZiplineDropshipSpawns(), node.GetOrigin() )
+		entity closestNode = GetClosest( dropshipSpawns, node.GetOrigin() )
 		SetTeam( closestNode, node.GetTeam() )
 
-		if ( Distance( closestNode.GetOrigin(), node.GetOrigin() ) < INTRO_DROPSHIP_CUTOFF )
+		if ( Distance( closestNode.GetOrigin(), node.GetOrigin() ) < INTRO_DROPSHIP_CUTOFF && introShipSpawns.find( closestNode ) < 0 )
 			introShipSpawns.append( closestNode )
 	}
 

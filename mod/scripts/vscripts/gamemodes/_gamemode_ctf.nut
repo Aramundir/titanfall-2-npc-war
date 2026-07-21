@@ -189,6 +189,8 @@ void function SpawnIntroBatch( int team )
 				podNodes.append( node )
 		}
 
+		shipNodes = GetValidIntroDropShipSpawn( podNodes )
+
 		// If for some reason we're missing team nodes
 		// start spawner
 		if( podNodes.len() == 0 )
