@@ -12,15 +12,57 @@ const array<string> NPCWAR_TUNABLE_UNIT_CLASSES =
 	"npc_titan"
 ]
 
+const array<string> NPCWAR_TUNABLE_UNIT_TYPES =
+[
+	"infantry",
+	"reaper",
+	"prowler",
+	"titan"
+]
+
+struct
+{
+	array<float> healthMultipliers
+	array<float> damageMultipliers
+	bool customHealthEnabled = false
+	bool customDamageEnabled = false
+} file
+
 void function NPCWarUnitTuning_Init()
 {
-	foreach ( string className in NPCWAR_TUNABLE_UNIT_CLASSES )
+	NPCWarStaticSettings_Cache()
+	NPCWarUnitTuning_CacheMultipliers()
+
+	if ( file.customHealthEnabled )
 	{
-		AddSpawnCallback( className, NPCWarUnitTuning_OnUnitSpawned )
-		AddDamageCallback( className, NPCWarUnitTuning_OnUnitDamaged )
+		foreach ( string className in NPCWAR_TUNABLE_UNIT_CLASSES )
+			AddSpawnCallback( className, NPCWarUnitTuning_OnUnitSpawned )
 	}
 
-	AddDamageCallback( "player", NPCWarUnitTuning_OnUnitDamaged )
+	if ( file.customDamageEnabled )
+	{
+		foreach ( string className in NPCWAR_TUNABLE_UNIT_CLASSES )
+			AddDamageCallback( className, NPCWarUnitTuning_OnUnitDamaged )
+
+		AddDamageCallback( "player", NPCWarUnitTuning_OnUnitDamaged )
+	}
+}
+
+void function NPCWarUnitTuning_CacheMultipliers()
+{
+	foreach ( int team in [ TEAM_MILITIA, TEAM_IMC ] )
+	{
+		foreach ( string unitType in NPCWAR_TUNABLE_UNIT_TYPES )
+		{
+			float healthMultiplier = NPCWarUnitTuning_HealthMultiplier( team, unitType )
+			float damageMultiplier = NPCWarUnitTuning_DamageMultiplier( team, unitType )
+
+			file.healthMultipliers.append( healthMultiplier )
+			file.damageMultipliers.append( damageMultiplier )
+			file.customHealthEnabled = file.customHealthEnabled || healthMultiplier != 1.0
+			file.customDamageEnabled = file.customDamageEnabled || damageMultiplier != 1.0
+		}
+	}
 }
 
 void function NPCWarUnitTuning_OnUnitSpawned( entity unit )
@@ -36,11 +78,11 @@ void function NPCWarUnitTuning_ApplyHealthMultiplier( entity unit )
 	if ( !IsAlive( unit ) )
 		return
 
-	string unitType = NPCWarUnitTuning_GetUnitType( unit )
-	if ( unitType == "" )
+	int unitTypeIndex = NPCWarUnitTuning_GetUnitTypeIndex( unit )
+	if ( unitTypeIndex < 0 )
 		return
 
-	float multiplier = NPCWarUnitTuning_HealthMultiplier( unit.GetTeam(), unitType )
+	float multiplier = NPCWarUnitTuning_GetCachedMultiplier( file.healthMultipliers, unit.GetTeam(), unitTypeIndex )
 	if ( multiplier == 1.0 )
 		return
 
@@ -62,29 +104,38 @@ void function NPCWarUnitTuning_OnUnitDamaged( entity victim, var damageInfo )
 	if ( !IsValid( attacker ) || !attacker.IsNPC() )
 		return
 
-	string unitType = NPCWarUnitTuning_GetUnitType( attacker )
-	if ( unitType == "" )
+	int unitTypeIndex = NPCWarUnitTuning_GetUnitTypeIndex( attacker )
+	if ( unitTypeIndex < 0 )
 		return
 
-	float multiplier = NPCWarUnitTuning_DamageMultiplier( attacker.GetTeam(), unitType )
+	float multiplier = NPCWarUnitTuning_GetCachedMultiplier( file.damageMultipliers, attacker.GetTeam(), unitTypeIndex )
 	if ( multiplier == 1.0 )
 		return
 
 	DamageInfo_SetDamage( damageInfo, DamageInfo_GetDamage( damageInfo ) * multiplier )
 }
 
-string function NPCWarUnitTuning_GetUnitType( entity unit )
+int function NPCWarUnitTuning_GetUnitTypeIndex( entity unit )
 {
 	string className = unit.GetClassName()
 
 	if ( className == "npc_soldier" || className == "npc_spectre" || className == "npc_stalker" )
-		return "infantry"
+		return 0
 	if ( className == "npc_super_spectre" )
-		return "reaper"
+		return 1
 	if ( className == "npc_prowler" )
-		return "prowler"
+		return 2
 	if ( className == "npc_titan" )
-		return "titan"
+		return 3
 
-	return ""
+	return -1
+}
+
+float function NPCWarUnitTuning_GetCachedMultiplier( array<float> multipliers, int team, int unitTypeIndex )
+{
+	if ( team != TEAM_MILITIA && team != TEAM_IMC )
+		return 1.0
+
+	int teamIndex = team == TEAM_IMC ? 1 : 0
+	return multipliers[ teamIndex * NPCWAR_TUNABLE_UNIT_TYPES.len() + unitTypeIndex ]
 }

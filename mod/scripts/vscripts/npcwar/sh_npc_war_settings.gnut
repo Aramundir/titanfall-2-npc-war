@@ -17,6 +17,7 @@ global function NPCWarUnitTuning_HealthMultiplier
 global function NPCWarUnitTuning_DamageMultiplier
 
 #if SERVER
+	global function NPCWarStaticSettings_Cache
 	global function NPCWarPilotMode_PrepareTitanAvailability
 	global function NPCWarPilotMode_ApplyMatchLimitOverrides
 	global function NPCWarPilotMode_ApplyBoostAvailability
@@ -146,6 +147,8 @@ struct
 	float nextDirectorStatusMessageTime = 0.0
 	array< int > lastPressureLevel = [ -1, -1 ]
 	array< int > lastDampeningLevel = [ -1, -1 ]
+	bool staticSettingsCached = false
+	table<string, int> cachedPlaylistInts
 } file
 
 void function NPCWarPilotModeSettings_Init()
@@ -260,7 +263,7 @@ string function NPCWarUnitTuning_GetMultiplierVar( int team, string unitType, bo
 
 bool function NPCWarPilotMode_GruntMovementEnabled()
 {
-	return GetCurrentPlaylistVarInt( NPCWAR_GRUNT_MOVEMENT_VAR, 0 ) == 1
+	return NPCWarStaticSettings_GetInt( NPCWAR_GRUNT_MOVEMENT_VAR, 0 ) == 1
 }
 
 bool function NPCWarPilotMode_CallableTitansEnabled()
@@ -270,7 +273,7 @@ bool function NPCWarPilotMode_CallableTitansEnabled()
 
 int function NPCWarPilotMode_TitanAvailabilityMode()
 {
-	int mode = GetCurrentPlaylistVarInt( NPCWAR_CALLABLE_TITANS_VAR, NPCWAR_TITAN_MODE_POST_TITAN )
+	int mode = NPCWarStaticSettings_GetInt( NPCWAR_CALLABLE_TITANS_VAR, NPCWAR_TITAN_MODE_POST_TITAN )
 
 	if ( mode < NPCWAR_TITAN_MODE_DISABLED || mode > NPCWAR_TITAN_MODE_POST_TITAN )
 		return NPCWAR_TITAN_MODE_POST_TITAN
@@ -280,7 +283,7 @@ int function NPCWarPilotMode_TitanAvailabilityMode()
 
 int function NPCWarPilotMode_BoostMode()
 {
-	int mode = GetCurrentPlaylistVarInt( NPCWAR_BOOST_MODE_VAR, NPCWAR_BOOST_MODE_VANILLA )
+	int mode = NPCWarStaticSettings_GetInt( NPCWAR_BOOST_MODE_VAR, NPCWAR_BOOST_MODE_VANILLA )
 
 	if ( mode < NPCWAR_BOOST_MODE_DISABLED || mode > NPCWAR_BOOST_MODE_POST_TITAN )
 		return NPCWAR_BOOST_MODE_VANILLA
@@ -290,7 +293,7 @@ int function NPCWarPilotMode_BoostMode()
 
 int function NPCWarPilotMode_BoostPool()
 {
-	int mode = GetCurrentPlaylistVarInt( NPCWAR_BOOST_POOL_VAR, NPCWAR_BOOST_POOL_VANILLA )
+	int mode = NPCWarStaticSettings_GetInt( NPCWAR_BOOST_POOL_VAR, NPCWAR_BOOST_POOL_VANILLA )
 
 	if ( mode < NPCWAR_BOOST_POOL_VANILLA || mode > NPCWAR_BOOST_POOL_GRUNT_MODE_2 )
 		return NPCWAR_BOOST_POOL_VANILLA
@@ -300,17 +303,17 @@ int function NPCWarPilotMode_BoostPool()
 
 bool function NPCWarPilotMode_TacticalEnabled()
 {
-	return GetCurrentPlaylistVarInt( NPCWAR_PLAYER_TACTICAL_VAR, 1 ) == 1
+	return NPCWarStaticSettings_GetInt( NPCWAR_PLAYER_TACTICAL_VAR, 1 ) == 1
 }
 
 bool function NPCWarPilotMode_OrdnanceEnabled()
 {
-	return GetCurrentPlaylistVarInt( NPCWAR_PLAYER_ORDNANCE_VAR, 1 ) == 1
+	return NPCWarStaticSettings_GetInt( NPCWAR_PLAYER_ORDNANCE_VAR, 1 ) == 1
 }
 
 bool function NPCWarPilotMode_AntiTitanWeaponEnabled()
 {
-	return GetCurrentPlaylistVarInt( NPCWAR_PLAYER_ANTI_TITAN_VAR, 1 ) == 1
+	return NPCWarStaticSettings_GetInt( NPCWAR_PLAYER_ANTI_TITAN_VAR, 1 ) == 1
 }
 
 bool function NPCWarPilotMode_PlayerTitanMeterUnlocked()
@@ -326,7 +329,7 @@ bool function NPCWarPilotMode_TitanEscalationUnlocked()
 
 int function NPCWarPilotMode_PlayerPilotDeathScore()
 {
-	int score = GetCurrentPlaylistVarInt( NPCWAR_PLAYER_PILOT_DEATH_SCORE_VAR, NPCWAR_PLAYER_PILOT_DEATH_SCORE_DEFAULT )
+	int score = NPCWarStaticSettings_GetInt( NPCWAR_PLAYER_PILOT_DEATH_SCORE_VAR, NPCWAR_PLAYER_PILOT_DEATH_SCORE_DEFAULT )
 
 	if ( score < 0 )
 		return 0
@@ -336,7 +339,7 @@ int function NPCWarPilotMode_PlayerPilotDeathScore()
 
 bool function NPCWarDirector_Enabled()
 {
-	return GetCurrentPlaylistVarInt( NPCWAR_DIRECTOR_MODE_VAR, NPCWAR_DIRECTOR_ENABLED ) == NPCWAR_DIRECTOR_ENABLED
+	return NPCWarStaticSettings_GetInt( NPCWAR_DIRECTOR_MODE_VAR, NPCWAR_DIRECTOR_ENABLED ) == NPCWAR_DIRECTOR_ENABLED
 }
 
 bool function NPCWarDirector_EnemyComebackPressureEnabled()
@@ -376,10 +379,76 @@ bool function NPCWarDirector_MessagesEnabled()
 
 bool function NPCWarDirector_SettingEnabled( string playlistVar, int defaultValue = 1 )
 {
-	return NPCWarDirector_Enabled() && GetCurrentPlaylistVarInt( playlistVar, defaultValue ) == 1
+	return NPCWarDirector_Enabled() && NPCWarStaticSettings_GetInt( playlistVar, defaultValue ) == 1
+}
+
+int function NPCWarStaticSettings_GetInt( string playlistVar, int defaultValue )
+{
+	if ( file.staticSettingsCached && playlistVar in file.cachedPlaylistInts )
+		return file.cachedPlaylistInts[ playlistVar ]
+
+	return GetCurrentPlaylistVarInt( playlistVar, defaultValue )
 }
 
 #if SERVER
+void function NPCWarStaticSettings_Cache()
+{
+	if ( file.staticSettingsCached )
+		return
+
+	NPCWarStaticSettings_CacheInt( NPCWAR_GRUNT_MOVEMENT_VAR, 0 )
+	NPCWarStaticSettings_CacheInt( NPCWAR_CALLABLE_TITANS_VAR, NPCWAR_TITAN_MODE_POST_TITAN )
+	NPCWarStaticSettings_CacheInt( NPCWAR_BOOST_MODE_VAR, NPCWAR_BOOST_MODE_VANILLA )
+	NPCWarStaticSettings_CacheInt( NPCWAR_BOOST_POOL_VAR, NPCWAR_BOOST_POOL_VANILLA )
+	NPCWarStaticSettings_CacheInt( NPCWAR_PLAYER_PILOT_DEATH_SCORE_VAR, NPCWAR_PLAYER_PILOT_DEATH_SCORE_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_PLAYER_TACTICAL_VAR, 1 )
+	NPCWarStaticSettings_CacheInt( NPCWAR_PLAYER_ORDNANCE_VAR, 1 )
+	NPCWarStaticSettings_CacheInt( NPCWAR_PLAYER_ANTI_TITAN_VAR, 1 )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_MODE_VAR, NPCWAR_DIRECTOR_ENABLED )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_COMEBACK_INFANTRY_VAR, 1 )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_HOT_PLAYER_PRESSURE_VAR, 1 )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_HOT_PLAYER_DAMPENING_VAR, 1 )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_MESSAGES_VAR, 1 )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_PRESSURE_STEP_VAR, NPCWAR_DIRECTOR_INFANTRY_BUDGET_STEP_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_PRESSURE_1_VAR, NPCWAR_DIRECTOR_PRESSURE_1_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_PRESSURE_2_VAR, NPCWAR_DIRECTOR_PRESSURE_2_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_PRESSURE_3_VAR, NPCWAR_DIRECTOR_PRESSURE_3_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_REAPER_BONUS_VAR, NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_PROWLER_BONUS_VAR, NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_TITAN_BONUS_VAR, NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_AI_PILOT_BONUS_VAR, NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_GUNSHIP_BONUS_VAR, NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_DIRECTOR_MARVIN_BONUS_VAR, NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_LEVEL_SPECTRES_VAR, NPCWAR_LEVEL_SPECTRES_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_LEVEL_STALKERS_VAR, NPCWAR_LEVEL_STALKERS_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_LEVEL_REAPERS_VAR, NPCWAR_LEVEL_REAPERS_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_LEVEL_GUNSHIPS_VAR, NPCWAR_LEVEL_GUNSHIPS_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_LEVEL_TITANS_VAR, NPCWAR_LEVEL_TITANS_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_MILITIA_INFANTRY_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_IMC_INFANTRY_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_MILITIA_REAPER_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_IMC_REAPER_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_MILITIA_PROWLER_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_IMC_PROWLER_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_MILITIA_TITAN_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_IMC_TITAN_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_MILITIA_AI_PILOT_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_IMC_AI_PILOT_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_MILITIA_MARVIN_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_IMC_MARVIN_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_MILITIA_GUNSHIP_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_IMC_GUNSHIP_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
+	NPCWarStaticSettings_CacheInt( NPCWAR_CP_TELEMETRY_VAR, 0 )
+	NPCWarStaticSettings_CacheInt( NPCWAR_CP_SCENARIO_TESTS_VAR, 0 )
+
+	file.staticSettingsCached = true
+}
+
+void function NPCWarStaticSettings_CacheInt( string playlistVar, int defaultValue )
+{
+	file.cachedPlaylistInts[ playlistVar ] <- GetCurrentPlaylistVarInt( playlistVar, defaultValue )
+}
+
 void function NPCWarPilotMode_ApplyMatchLimitOverrides()
 {
 	// SetPlaylistVarOverride is only safe from Northstar's private lobby setting flow.
@@ -430,7 +499,7 @@ int function NPCWarPilotMode_GetEscalationThreshold( string playlistVar, string 
 	if ( defaultValue < 0 )
 		defaultValue = fallbackValue
 
-	int threshold = GetCurrentPlaylistVarInt( playlistVar, defaultValue )
+	int threshold = NPCWarStaticSettings_GetInt( playlistVar, defaultValue )
 	return maxint( 0, threshold )
 }
 
@@ -703,22 +772,22 @@ bool function NPCWarDirector_CanUseEmergencyUnit( string convarName, int baseLim
 
 int function NPCWarDirector_GetPressureInfantryStep()
 {
-	return maxint( 0, GetCurrentPlaylistVarInt( NPCWAR_DIRECTOR_PRESSURE_STEP_VAR, NPCWAR_DIRECTOR_INFANTRY_BUDGET_STEP_DEFAULT ) )
+	return maxint( 0, NPCWarStaticSettings_GetInt( NPCWAR_DIRECTOR_PRESSURE_STEP_VAR, NPCWAR_DIRECTOR_INFANTRY_BUDGET_STEP_DEFAULT ) )
 }
 
 int function NPCWarDirector_GetPressureLevel1Gap()
 {
-	return maxint( 0, GetCurrentPlaylistVarInt( NPCWAR_DIRECTOR_PRESSURE_1_VAR, NPCWAR_DIRECTOR_PRESSURE_1_DEFAULT ) )
+	return maxint( 0, NPCWarStaticSettings_GetInt( NPCWAR_DIRECTOR_PRESSURE_1_VAR, NPCWAR_DIRECTOR_PRESSURE_1_DEFAULT ) )
 }
 
 int function NPCWarDirector_GetPressureLevel2Gap()
 {
-	return maxint( 0, GetCurrentPlaylistVarInt( NPCWAR_DIRECTOR_PRESSURE_2_VAR, NPCWAR_DIRECTOR_PRESSURE_2_DEFAULT ) )
+	return maxint( 0, NPCWarStaticSettings_GetInt( NPCWAR_DIRECTOR_PRESSURE_2_VAR, NPCWAR_DIRECTOR_PRESSURE_2_DEFAULT ) )
 }
 
 int function NPCWarDirector_GetPressureLevel3Gap()
 {
-	return maxint( 0, GetCurrentPlaylistVarInt( NPCWAR_DIRECTOR_PRESSURE_3_VAR, NPCWAR_DIRECTOR_PRESSURE_3_DEFAULT ) )
+	return maxint( 0, NPCWarStaticSettings_GetInt( NPCWAR_DIRECTOR_PRESSURE_3_VAR, NPCWAR_DIRECTOR_PRESSURE_3_DEFAULT ) )
 }
 
 int function NPCWarDirector_GetSpecialUnitPressureBonus( int team, string convarName )
@@ -738,7 +807,7 @@ int function NPCWarDirector_GetSpecialUnitBonusStep( string convarName )
 	if ( playlistVar == "" )
 		return 0
 
-	return maxint( 0, GetCurrentPlaylistVarInt( playlistVar, NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT ) )
+	return maxint( 0, NPCWarStaticSettings_GetInt( playlistVar, NPCWAR_DIRECTOR_SPECIAL_UNIT_BONUS_DEFAULT ) )
 }
 
 string function NPCWarDirector_GetSpecialUnitBonusVar( string convarName )
@@ -810,7 +879,7 @@ string function NPCWarBudget_GetTeamBudgetVar( int team, string militiaVar, stri
 
 int function NPCWarBudget_GetPlaylistIntOrDefault( string varName, int defaultValue )
 {
-	int value = GetCurrentPlaylistVarInt( varName, NPCWAR_BUDGET_DEFAULT )
+	int value = NPCWarStaticSettings_GetInt( varName, NPCWAR_BUDGET_DEFAULT )
 
 	if ( value < 0 )
 		return defaultValue

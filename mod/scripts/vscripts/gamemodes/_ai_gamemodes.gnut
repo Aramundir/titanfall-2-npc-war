@@ -49,6 +49,7 @@ const array<string> SPECIALIST_VALID_DRONETYPES =
 struct
 {
 	table< string, array<string> > npcWeaponsTable // npcs have their default weapon in aisettings file
+	table< string, array<entity> > populationUnits
 } file
 //------------------------------------------------------
 
@@ -64,26 +65,65 @@ void function NPCWar_MarkPopulationUnit( entity npc, string populationType )
 	if ( !IsValid( npc ) )
 		return
 
+	int team = npc.GetTeam()
+	string populationKey = NPCWar_GetPopulationKey( team, populationType )
+	if ( !( populationKey in file.populationUnits ) )
+		file.populationUnits[ populationKey ] <- []
+
+	if ( "npcWarPopulationType" in npc.s && "npcWarPopulationTeam" in npc.s )
+	{
+		if ( ( expect string( npc.s.npcWarPopulationType ) ) == populationType && ( expect int( npc.s.npcWarPopulationTeam ) ) == team )
+			return
+	}
+
 	if ( "npcWarPopulationType" in npc.s )
 		npc.s.npcWarPopulationType = populationType
 	else
 		npc.s.npcWarPopulationType <- populationType
+	if ( "npcWarPopulationTeam" in npc.s )
+		npc.s.npcWarPopulationTeam = team
+	else
+		npc.s.npcWarPopulationTeam <- team
+
+	if ( file.populationUnits[ populationKey ].find( npc ) < 0 )
+		file.populationUnits[ populationKey ].append( npc )
 }
 
 int function NPCWar_GetPopulationCount( int team, string populationType )
 {
-	int count = 0
+	string populationKey = NPCWar_GetPopulationKey( team, populationType )
+	if ( !( populationKey in file.populationUnits ) )
+		return 0
 
-	foreach ( entity npc in GetNPCArrayOfTeam( team ) )
+	array<entity> units = file.populationUnits[ populationKey ]
+	for ( int index = units.len() - 1; index >= 0; index-- )
 	{
-		if ( !IsValid( npc ) || !IsAlive( npc ) || !( "npcWarPopulationType" in npc.s ) )
+		entity npc = units[ index ]
+		if ( !IsValid( npc ) || !IsAlive( npc ) )
+		{
+			units.remove( index )
 			continue
+		}
 
-		if ( expect string( npc.s.npcWarPopulationType ) == populationType )
-			count++
+		if ( !( "npcWarPopulationType" in npc.s ) || ( expect string( npc.s.npcWarPopulationType ) ) != populationType )
+		{
+			units.remove( index )
+			continue
+		}
+
+		if ( npc.GetTeam() != team )
+		{
+			NPCWar_MarkPopulationUnit( npc, populationType )
+			units.remove( index )
+		}
 	}
 
-	return count
+	return units.len()
+}
+
+string function NPCWar_GetPopulationKey( int team, string populationType )
+{
+	return string( team ) + ":" + populationType
 }
 
 int function NPCWar_GetTitanPopulationCount( int team )
@@ -1003,7 +1043,10 @@ void function PilotHandler( entity pilot )
 		// Get point and send guy to it
 		points = GetNPCArrayOfEnemies( pilot.GetTeam() )
 		if ( points.len() == 0 )
+		{
+			wait 0.1
 			continue
+		}
 
 		point = points[ RandomInt( points.len() ) ].GetOrigin()
 
@@ -1047,7 +1090,10 @@ void function TitanHandler( entity titan )
 		// Get point and send guy to it
 		points = GetNPCArrayOfEnemies( titan.GetTeam() )
 		if ( points.len() == 0 )
+		{
+			wait 0.1
 			continue
+		}
 
 		point = points[ RandomInt( points.len() ) ].GetOrigin()
 

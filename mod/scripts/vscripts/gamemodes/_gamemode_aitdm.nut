@@ -37,6 +37,10 @@ struct
 	array< bool > titans = [ false, false ]
 	array< float > nextDropshipSpawnTime = [ 0.0, 0.0 ]
 	array< float > nextInfantryDispatchTime = [ 0.0, 0.0 ]
+	array<entity> introDropPodPoints
+	array<entity> dropPodPoints
+	array<entity> titanPoints
+	array<entity> dropshipPoints
 } file
 
 void function GamemodeAITdm_Init()
@@ -87,12 +91,22 @@ void function OnPrematchStart()
 
 void function OnPlaying()
 {
+	NPCWar_CacheSpawnPoints()
+
 	// don't run spawning code if ains and nms aren't up to date
 	if ( GetAINScriptVersion() == AIN_REV && GetNodeCount() != 0 )
 	{
 		thread SpawnIntroBatch( TEAM_MILITIA )
 		thread SpawnIntroBatch( TEAM_IMC )
 	}
+}
+
+void function NPCWar_CacheSpawnPoints()
+{
+	file.introDropPodPoints = GetEntArrayByClass_Expensive( "info_spawnpoint_droppod_start" )
+	file.dropPodPoints = SpawnPoints_GetDropPod()
+	file.titanPoints = SpawnPoints_GetTitan()
+	file.dropshipPoints = GetZiplineDropshipSpawns()
 }
 
 void function OnPlayerConnected( entity player )
@@ -128,10 +142,11 @@ void function HandleScoreEvent( entity victim, entity attacker, var damageInfo )
 
 void function SpawnIntroBatch( int team )
 {
+	thread EscalationThink( team )
+
 	if( GetMapName() != "mp_rise" && GetMapName() != "mp_wargames" && GetMapName() != "mp_crashsite3" )
 	{
-		array<entity> dropPodNodes = GetEntArrayByClass_Expensive( "info_spawnpoint_droppod_start" )
-		array<entity> dropShipNodes = GetValidIntroDropShipSpawn( dropPodNodes )
+		array<entity> dropPodNodes = file.introDropPodPoints
 
 		array<entity> podNodes
 		array<entity> shipNodes
@@ -212,15 +227,13 @@ void function Spawner( int team )
 	{
 		if( GetGameState() == eGameState.Playing )
 		{
-			Escalate( team )
-
 			int count = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_INFANTRY )
 			int reaperCount = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_REAPER )
 
 			// REAPERS
 			if ( file.reapers[ index ] )
 			{
-				array< entity > points = SpawnPoints_GetDropPod()
+				array< entity > points = file.dropPodPoints
 			if ( reaperCount < NPCWarDirector_GetUnitLimit( team, "NPCWAR_REAPERS" ) )
 				{
 					entity node = points[ GetSpawnPointIndex( points, team ) ]
@@ -242,7 +255,7 @@ void function Spawner( int team )
 				// Prefer dropship when spawning grunts
 				if ( ent == "npc_soldier" )
 				{
-					array< entity > points = GetZiplineDropshipSpawns()
+					array< entity > points = file.dropshipPoints
 					if ( points.len() / 4 >= 1 && squadDeficit < emergencyDroppodDeficit && Time() >= file.nextDropshipSpawnTime[ index ] && RandomInt( points.len() / 4 ) )
 					{
 						entity node = points[ GetSpawnPointIndex( points, team ) ]
@@ -255,14 +268,14 @@ void function Spawner( int team )
 
 				if ( shouldSpawnDropPod )
 				{
-					array< entity > points = SpawnPoints_GetDropPod()
+					array< entity > points = file.dropPodPoints
 					entity node = points[ GetSpawnPointIndex( points, team ) ]
 					print( "Spawned Drop Pod for team " + team + " with " + count + "/" + squadLimit + " infantry" )
 					waitthread AiGameModes_SpawnDropPod( node.GetOrigin(), node.GetAngles(), team, ent, SquadHandler )
 				}
 			}
 		}
-		WaitFrame()
+		wait 0.1
 	}
 }
 
@@ -281,11 +294,8 @@ void function SpawnerExtend( int team )
 	{
 		if( GetGameState() == eGameState.Playing )
 		{
-			Escalate( team )
-
 			int marvinCount = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_MARVIN )
 			int prowlerCount = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_PROWLER )
-			int stalkerCount = GetNPCArrayEx( "npc_stalker", team, -1, <0,0,0>, -1 ).len()
 			int gunshipCount = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_GUNSHIP )
 	        int titanCount = NPCWar_GetTitanPopulationCount( team )
 	        int pilotCount = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_PILOT )
@@ -294,7 +304,7 @@ void function SpawnerExtend( int team )
 	        // GUNSHIPS
 	        if ( file.gunships[ index ] )
 			{
-				array< entity > points = SpawnPoints_GetDropPod()
+				array< entity > points = file.dropPodPoints
 				if ( gunshipCount < NPCWarDirector_GetUnitLimit( team, "NPCWAR_GUNSHIPS" ) )
 				{
 					entity node = points[ GetSpawnPointIndex( points, team ) ]
@@ -305,7 +315,7 @@ void function SpawnerExtend( int team )
 			// TITANS
 			if ( file.titans[ index ] )
 			{
-				array< entity > points = SpawnPoints_GetTitan()
+				array< entity > points = file.titanPoints
 				if ( titanCount < NPCWarDirector_GetUnitLimit( team, "NPCWAR_TITANS" ) )
 				{
 					entity node = points[ GetSpawnPointIndex( points, team ) ]
@@ -316,7 +326,7 @@ void function SpawnerExtend( int team )
 			// PILOTS
 			if ( file.pilots[ index ] )
 			{
-				array< entity > points = SpawnPoints_GetTitan()
+				array< entity > points = file.titanPoints
 				if ( pilotCount < NPCWarDirector_GetUnitLimit( team, "NPCWAR_PILOTS" ) )
 				{
 					entity node = points[ GetSpawnPointIndex( points, team ) ]
@@ -329,7 +339,7 @@ void function SpawnerExtend( int team )
 			if ( file.marvins[ index ] )
 			{
 				string ent = "npc_marvin"
-				array< entity > points = SpawnPoints_GetDropPod()
+				array< entity > points = file.dropPodPoints
 				if ( marvinCount < NPCWarDirector_GetUnitLimit( team, "NPCWAR_MRVNS" ) )
 				{
 					entity node = points[ GetSpawnPointIndex( points, team ) ]
@@ -343,7 +353,7 @@ void function SpawnerExtend( int team )
 			if ( file.prowlers[ index ] )
 			{
 				string ent = "npc_prowler"
-				array< entity > points = SpawnPoints_GetDropPod()
+				array< entity > points = file.dropPodPoints
 				if ( prowlerCount < NPCWarDirector_GetUnitLimit( team, "NPCWAR_PROWLERS" ) )
 				{
 					entity node = points[ GetSpawnPointIndex( points, team ) ]
@@ -355,7 +365,18 @@ void function SpawnerExtend( int team )
 		}
 		else
 			break
-		WaitFrame()
+		wait 0.1
+	}
+}
+
+void function EscalationThink( int team )
+{
+	svGlobal.levelEnt.EndSignal( "GameStateChanged" )
+
+	while ( GetGameState() == eGameState.Playing )
+	{
+		Escalate( team )
+		wait 0.25
 	}
 }
 
@@ -538,7 +559,10 @@ void function TitanHandler( entity titan )
 		// Get point and send guy to it
 		points = GetNPCArrayOfEnemies( titan.GetTeam() )
 		if ( points.len() == 0 )
+		{
+			wait 0.1
 			continue
+		}
 
 		point = points[ RandomInt( points.len() ) ].GetOrigin()
 
