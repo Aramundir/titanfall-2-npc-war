@@ -164,6 +164,7 @@ void function AiGameModes_Init()
 {
 	ProwlerPrecache()
 	PrecacheModel( CAREPACKAGE_MODEL )
+	AddSpawnCallback( "npc_prowler", NPCWarProwlerMinimap_OnSpawned )
 
 	// no need since we already got these in _ai_pilots.gnut
 	AddCallback_OnNpcPilotBecomesTitan( OnNpcPilotBecomesTitan )
@@ -171,6 +172,47 @@ void function AiGameModes_Init()
 	RegisterSignal( "ForceStartMove" )
 	//AddCallback_OnNpcPilotBecomesTitan( NpcPilotBecomesTitan )
 	//AddCallback_OnNpcTitanBecomesPilot( NpcTitanBecomesPilot )
+}
+
+void function NPCWarProwlerMinimap_OnSpawned( entity prowler )
+{
+	thread NPCWarProwlerMinimap_Think( prowler )
+}
+
+void function NPCWarProwlerMinimap_Think( entity prowler )
+{
+	prowler.EndSignal( "OnDeath" )
+	prowler.EndSignal( "OnDestroy" )
+
+	// Let the shared spawn callback finish setting the default minimap materials first.
+	WaitFrame()
+
+	table<entity, bool> visibleToPlayer
+	while ( true )
+	{
+		bool detected = (
+			StatusEffect_Get( prowler, eStatusEffect.sonar_detected ) > 0.0 ||
+			StatusEffect_Get( prowler, eStatusEffect.maphack_detected ) > 0.0
+		)
+
+		foreach ( entity player in GetPlayerArrayOfEnemies( prowler.GetTeam() ) )
+		{
+			bool shouldShow = detected && prowler.IsHighlightEnabledForTeam( player.GetTeam() )
+			if ( player in visibleToPlayer && visibleToPlayer[ player ] == shouldShow )
+				continue
+
+			if ( player in visibleToPlayer )
+				visibleToPlayer[ player ] = shouldShow
+			else
+				visibleToPlayer[ player ] <- shouldShow
+			if ( shouldShow )
+				prowler.Minimap_AlwaysShow( 0, player )
+			else
+				prowler.Minimap_Hide( 0, player )
+		}
+
+		wait 0.2
+	}
 }
 
 void function ProwlerPrecache()
