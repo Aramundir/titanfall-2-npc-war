@@ -54,6 +54,16 @@ The full NPC War behavior is currently built for:
 
 Pilot Skirmish has compatibility/scoring hooks, but it is not the main NPC War experience.
 
+### Bounty Hunt Compatibility
+
+Bounty Hunt is not currently a full NPC War mode, but enabling NPC War changes its infantry composition through a shared spawning helper.
+
+Bounty Hunt keeps its original wave, camp, bounty, banking, scoring, and `TEAM_BOTH` hostility systems. When it requests a droppod squad, however, it calls the shared `AiGameModes_SpawnDropPod` function overridden by NPC War. As a result, Bounty Hunt soldier squads can receive the NPC classes inherited from Grunt Mode 2, including Specialists and Shield Captains, while otherwise remaining part of the normal Bounty Hunt encounter.
+
+Ordinary Bounty Hunt infantry are not forced to appear continuously on the minimap. Unlike NPC War's Attrition, Amped Hardpoint, and CTF squad handlers, Bounty Hunt does not mark its regular wave NPCs as always visible. Pulse Blade, Map Hack, and other detection effects can therefore reveal enemies that are normally hidden. Bounty boss Titans use Bounty Hunt's own permanent minimap visibility.
+
+This compatibility is currently incidental rather than a separately balanced integration. NPC War does not yet add rival NPC bounty hunters, automated banking, or solo-opposition logic. Bounty Hunt boss Titans also retain their native three-times health multiplier, which is designed for several players and can make solo boss waves unusually long.
+
 ## Core Player Behavior
 
 This is one of NPC War's main changes from Grunt Mode 2: the player keeps their selected Pilot loadout instead of using Grunt Mode 2's randomized class-progression system.
@@ -84,6 +94,8 @@ NPC War adds configurable player Titan and boost behavior so the player can choo
 
 - `Vanilla`: boost names match their normal Northstar/Titanfall 2 effects.
 - `Grunt Mode 2`: keeps the inherited Grunt Mode 2 boost payloads, where some boosts are repurposed into custom rewards such as the double-barrel shotgun, hacked Spectres, or a pet Reaper.
+
+The Smart Pistol reward in the Vanilla pool and the double-barrel shotgun reward in the Grunt Mode 2 pool temporarily replace the player's slot-2 weapon. When the reward weapon runs out of loaded and reserve ammunition, NPC War removes it and restores the displaced weapon with its saved mods, ammunition, skin, and camo. Death cancels the temporary replacement and allows the normal respawn loadout to take over.
 
 Boost Drops and Direct Grant boosts are not part of the current live design.
 
