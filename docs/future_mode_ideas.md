@@ -499,12 +499,37 @@ Examples:
   - The player can intercept it.
 - Boss Contract:
   - Mark a Reaper, Titan, or elite squad as a contract target.
+- Secure a Drop:
+  - Deliver a physical cache to a valid location. The contents can be weapons, ordnance, supplies, intelligence, or another adapter-defined resource.
+  - Announce the incoming drop and start an objective timer.
+  - The player must reach the drop and keep it secure for a short capture or recovery period.
+  - Enemy presence can contest progress. Failure can occur when time expires or an opposing side secures the cache first.
+  - The base Frontier Contracts version can remain player-focused. With an NPC War adapter, nearby squads can temporarily treat the drop as an objective, move to defend or contest it, and claim it for their faction.
+  - Candidate rewards include player credits, equipment access, a host-defined reward event, or no mechanical reward beyond the encounter itself.
+  - An NPC War logistics adapter could convert success into reinforcement resources, faster resource regeneration, a discounted or additional reinforcement dispatch, or a temporary squad-quality bonus.
+  - One possible squad-quality bonus is a single reinforcement cycle in which every newly delivered infantry squad upgrades one ordinary grunt into a Specialist. The bonus should expire after one upgrade per expected squad slot or another clearly bounded count; it must not become a permanent composition change.
+- Acquire Intel:
+  - Mark a search area rather than the exact objective position.
+  - Place an interactable intelligence item at a valid randomized location inside that area.
+  - The player must search the marked space, identify the physical item, and interact with it before the objective expires.
+  - The search area must be small enough to be readable but large enough that the exact item is not obvious from the marker alone.
+  - Candidate intelligence props need a separate model survey. The chosen model should be visible, plausible as portable data or documents, and safe to place on multiplayer maps.
+  - Rewards remain deliberately undefined. It can grant credits, emit information-related events for a host mod, reveal another contract, or exist purely as objective variety.
+
+Objective implementation notes:
+
+- Drop and intel placement should use validated map locations, traces, and clearance checks rather than an arbitrary offset that can enter walls or inaccessible geometry.
+- Objective markers must distinguish an exact target such as a secured drop from an uncertain search region such as Acquire Intel.
+- Neither objective grants match score, captures a base-mode objective, or changes the winner.
+- NPC War participation and logistics rewards are adapter integrations. Frontier Contracts must still run correctly without NPC War or reinforcement resources installed.
 
 Evidence:
 
 - Kill callbacks: `_codecallbacks_common.gnut:414`, `_npcwar.gnut:15`, `_npcwar.gnut:16`.
 - Markers/highlights/dialogue: `_remote_functions_mp.gnut:908`, `sh_highlight.gnut:843`, `_faction_dialogue.gnut:17`.
 - NPC steering for objective movement: `_ai_soldiers.gnut:758`, `_ai_soldiers.gnut:781`.
+- Interactable object patterns: `_loadout_crate.nut:162`, `_gamemode_at.nut:1201`.
+- Valid placement building blocks: spawn-location helpers, map spawn points, `TraceLine`, and `TraceHull` examples indexed earlier in this document.
 
 ### Player Economy
 
@@ -624,6 +649,13 @@ Example:
 - NPC War adapter adds a small resource bonus to the player's team.
 - The spawner later spends that bonus according to normal logistics rules.
 - Match score and win condition remain untouched.
+
+Secure-a-drop variants:
+
+- A faction secures a supply cache and receives a small resource payment or temporary regeneration bonus.
+- The next valid reinforcement delivery is discounted or receives one additional squad, subject to normal population caps.
+- For one bounded reinforcement cycle, each arriving infantry squad can replace one ordinary grunt with a Specialist.
+- These outcomes are mutually selectable adapter policies, not mandatory rewards built into Frontier Contracts.
 
 ### Relationship To Current NPC War Spawn Rules
 
@@ -989,6 +1021,109 @@ Create a framework for Titanfall 2 fan-made single-player missions inside Norths
 - NPC pathing depends heavily on map nav/path data.
 - Co-op would multiply edge cases; solo should come first.
 
+## Future Separate Mod: Titanfall Milsim
+
+This is a parked concept, not part of NPC War's current development scope. The immediate priority is to finish Hardpoint telemetry and strategy work, test and repair CTF, and complete the NPC War battle sandbox. Tactical player systems should only be revisited after the core modes are stable.
+
+### Design Target
+
+Create an optional, game-mode-independent combat-rules mod that can work with NPC War, Frontier Contracts, vanilla modes, and future projects. It should change player-facing combat rules without owning spawning, NPC strategy, objectives, scoring, or win conditions.
+
+An eventual all-in-one modpack could install compatible projects together, but each component should remain independently usable.
+
+### Chambered Reloads
+
+The initial idea was to model a retained chambered round in appropriate closed-bolt, magazine-fed weapons:
+
+- A weapon with a 30-round magazine receives 30 rounds after an empty reload.
+- If the player reloads while a round remains chambered, the result can be 30 rounds in the new magazine plus one in the chamber.
+- Interrupted reloads must not create ammunition.
+- The extra round must come from reserve ammunition rather than appearing for free.
+- Revolvers, shell-fed shotguns, launchers, energy systems, Titan weapons, and other incompatible weapon mechanisms must be excluded.
+
+Northstar exposes the required low-level pieces:
+
+- `GetWeaponPrimaryClipCount()` and `GetWeaponPrimaryClipCountMax()` expose loaded ammunition.
+- `SetWeaponPrimaryClipCount()` and `SetWeaponPrimaryClipCountAbsolute()` can alter the loaded count.
+- Player reserve ammunition can also be read and changed.
+- Weapon data supports per-weapon `OnWeaponReload` callbacks. `mp_titanweapon_arc_cannon.txt` and `mp_titanweapon_arc_cannon.nut` provide a working callback example.
+
+Open technical questions:
+
+- Whether every relevant vanilla weapon can receive a reload callback without fragile weapon-file conflicts.
+- Which reload milestone represents magazine removal, magazine insertion, and completed reload.
+- Whether the engine and HUD reliably support a loaded count above the declared magazine size.
+- How tactical and empty reloads interact with extended-magazine weapon mods.
+- How to preserve correct state through weapon swaps, death, pickups, and interrupted animations.
+
+### Ammunition And Resupply Problem
+
+Chambered Reloads is technically plausible but currently has little gameplay value by itself. Standard Titanfall 2 multiplayer effectively provides an unlimited ammunition budget. Preserving one chambered round or discarding ammunition during reloads does not form a meaningful tactical system while ammunition has no lasting scarcity.
+
+Discarded-magazine ammunition must not be implemented until the larger logistics loop exists. Otherwise the player can permanently exhaust ammunition without any intentional way to replenish it.
+
+A coherent ammunition system would first need:
+
+- A finite ammunition or magazine budget.
+- Reliable resupply through map stations, carried supplies, allied support, field caches, or objective rewards.
+- Clear behavior for weapon pickups and ammunition compatibility.
+- HUD feedback sufficient to understand remaining supplies.
+- Rules for death, respawn, round transitions, and game modes with different pacing.
+- Compatibility with both short vanilla matches and longer NPC War or Frontier Contracts sessions.
+
+Magazine retention could be considered later, but it would require tracking full and partial magazines instead of treating reserve ammunition as one undifferentiated pool.
+
+### Existing Systems Not To Duplicate
+
+Northstar already exposes player health and regeneration settings. Titanfall's baseline recoil and spread are also not considered problems that need arbitrary increases; more recoil is not automatically more realistic.
+
+NPC War currently owns Grunt Movement because it defines the player's role inside that sandbox. Do not extract it merely to give Titanfall Milsim another feature. Reconsider shared ownership only if several future mods genuinely need the same movement-rules implementation.
+
+Northstar also contains a functional Pilot Bleedout and first-aid system:
+
+- Lethal damage can incapacitate a Pilot instead of immediately killing them.
+- Teammates can hold Use to provide first aid.
+- Bleedout duration, first-aid duration, self-revival, restored health, weapon holstering, team bleedout, and AI miss behavior are configurable.
+- The current first-aid path is player-only. NPC medics would require custom detection, steering, treatment timing, interruption, and a clean server-side NPC revive entry point.
+
+NPC first aid is a possible future integration, not a current NPC War requirement. It would strongly affect solo difficulty and should remain optional if developed.
+
+### Tactical Information And Detection
+
+A future tactical-information option can make ordinary hostile NPCs absent from the minimap unless revealed by a detection system such as Pulse Blade, Map Hack, or another sonar source. This would give information-gathering equipment a meaningful role in NPC-heavy modes.
+
+This broad policy belongs in Titanfall Milsim rather than being hardcoded into NPC War:
+
+- It changes a universal player-information rule rather than NPC strategy or spawning.
+- It should work consistently in vanilla modes, NPC War, Frontier Contracts, and future modes.
+- It needs explicit treatment for firing pings, directional threat indicators, Titans, objectives, bosses, cloaked units, and temporary sonar overlap.
+- Objective markers and information required to understand a mode's win condition must remain visible.
+
+NPC War can still define unit-specific exceptions where they are part of battlefield identity. Prowlers are a suitable example: hidden from the minimap by default, but temporarily revealed to the detecting team by Pulse Blade or Map Hack.
+
+### Minimum Coherent Prototype
+
+Do not begin with Chambered Reloads alone. The smallest prototype worth revisiting should prove the complete loop:
+
+1. Give the player a finite but generous ammunition budget.
+2. Provide at least one reliable resupply method on every supported map or through a portable interaction.
+3. Implement correct empty and tactical reload accounting for one conventional weapon.
+4. Verify interrupted reloads, weapon swaps, death, extended magazines, HUD display, and reserve accounting.
+5. Test whether the result improves decisions rather than merely adding bookkeeping.
+
+Only after that prototype feels worthwhile should support expand across the normal Pilot weapon roster.
+
+### Compatibility Boundary
+
+Titanfall Milsim should own only universal player-facing combat systems such as ammunition handling and any future medical or interaction rules.
+
+- NPC War owns NPC spawning, faction budgets, unit tuning, Director behavior, and mode strategy.
+- Frontier Contracts owns optional field objectives and their rewards.
+- Northstar match settings continue to own existing health, regeneration, and general match rules.
+- Game modes retain their own score and win conditions.
+
+The mod should not become a collection of harsher settings presented as realism. Every feature needs a supporting gameplay loop, clear information, and a reason to exist.
+
 ## Long-Term Research: Native AI And Convincing Pilot AI
 
 This is the boss-level research track. It should not block NPC War, Frontier Contracts, Solo Bounty Hunt, Extraction Shooter, or campaign prototypes.
@@ -1121,6 +1256,7 @@ Recommended order:
 7. If extraction becomes the priority, prototype Home Base plus one raid map with abstract loot.
 8. Use proven extraction infrastructure as the foundation for campaign missions.
 9. Treat native AI and convincing Pilot AI research as late-stage boss-level work, starting with `npc_pilot_elite` black-box tests before reverse engineering.
+10. Keep Titanfall Milsim parked until finite ammunition, resupply, and reload accounting can be prototyped as one coherent loop.
 
 Reasoning:
 
@@ -1131,3 +1267,4 @@ Reasoning:
 - Solo Bounty Hunt tests NPC opposition inside an existing economy-first mode instead of inventing a new score loop.
 - Extraction proves persistence, map travel, loot, and evac.
 - Campaign builds on extraction travel/objective infrastructure.
+- Titanfall Milsim should not distract from Hardpoint telemetry, CTF validation, or NPC War completion.
