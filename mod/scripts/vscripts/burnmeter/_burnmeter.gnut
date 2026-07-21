@@ -472,16 +472,59 @@ void function RemoveAmpedWeaponsForTitanPilot( entity player, entity titan )
 
 void function PlayerUsesSmartPistolBurncard( entity player )
 {
-	// take secondary weapon
-	array<entity> sidearms = player.GetMainWeapons()
-	if ( sidearms.len() > 1 )
-		player.TakeWeaponNow( sidearms[ 1 ].GetWeaponClassName() ) // take secondary weapon
-
 	string weaponName = NPCWarBurnMeter_UseGruntModeBoostPool() ? "mp_weapon_shotgun_doublebarrel" : "mp_weapon_smart_pistol"
-	player.GiveWeapon( weaponName )
+	array<entity> mainWeapons = player.GetMainWeapons()
+	if ( mainWeapons.len() <= 1 )
+	{
+		player.GiveWeapon( weaponName )
+		player.SetActiveWeaponByName( weaponName )
+		return
+	}
+
+	entity replacedWeapon = mainWeapons[ 1 ]
+	string replacedWeaponName = replacedWeapon.GetWeaponClassName()
+	array<string> replacedWeaponMods = replacedWeapon.GetMods()
+	int replacedWeaponAmmo = replacedWeapon.GetWeaponPrimaryAmmoCount()
+	int replacedWeaponClip = replacedWeapon.GetWeaponPrimaryClipCount()
+	int replacedWeaponSkin = replacedWeapon.GetSkin()
+	int replacedWeaponCamo = replacedWeapon.GetCamo()
+
+	player.TakeWeaponNow( replacedWeaponName )
+	entity rewardWeapon = player.GiveWeapon( weaponName )
 	player.SetActiveWeaponByName( weaponName )
 
-	// do we need to track the player losing smart pistol, then give their old weapon back? idk not implementing for now, check later
+	thread NPCWarBoostWeapon_RestoreSecondaryWhenEmpty( player, rewardWeapon, replacedWeaponName, replacedWeaponMods, replacedWeaponAmmo, replacedWeaponClip, replacedWeaponSkin, replacedWeaponCamo )
+}
+
+void function NPCWarBoostWeapon_RestoreSecondaryWhenEmpty( entity player, entity rewardWeapon, string weaponName, array<string> weaponMods, int ammoCount, int clipCount, int skinIndex, int camoIndex )
+{
+	player.EndSignal( "OnDeath" )
+	player.EndSignal( "OnDestroy" )
+
+	while ( IsValid( rewardWeapon ) )
+	{
+		if ( rewardWeapon.GetWeaponPrimaryClipCount() <= 0 && rewardWeapon.GetWeaponPrimaryAmmoCount() <= 0 )
+			break
+
+		wait 0.1
+	}
+
+	// A weapon can disappear temporarily during transitions such as Titan embark.
+	// Only replace it when we observed the temporary boost weapon actually run out of ammo.
+	if ( !IsValid( rewardWeapon ) || !IsAlive( player ) )
+		return
+
+	player.TakeWeaponNow( rewardWeapon.GetWeaponClassName() )
+	entity restoredWeapon = player.GiveWeapon( weaponName, weaponMods )
+	if ( !IsValid( restoredWeapon ) )
+		return
+
+	restoredWeapon.SetWeaponPrimaryAmmoCount( ammoCount )
+	if ( restoredWeapon.GetWeaponPrimaryClipCountMax() > 0 )
+		restoredWeapon.SetWeaponPrimaryClipCount( clipCount )
+	restoredWeapon.SetWeaponSkin( skinIndex )
+	restoredWeapon.SetWeaponCamo( camoIndex )
+	player.SetActiveWeaponByName( weaponName )
 }
 
 void function PlayerUsesRadarJammerBurncard( entity player )
@@ -593,7 +636,7 @@ void function PlayerUsesMaphackBurncardThreaded( entity player )
 			{
 				// Map Hack also gives radar on enemies for longer than the sonar duration.
 				if ( ent.GetTeam() == playerTeam )
-					thread ScanMinimap( ent, false, MAPHACK_PULSE_DELAY - 0.2 )
+					thread NPCWarMapHack_ScanMinimap( ent, MAPHACK_PULSE_DELAY - 0.2 )
 			}
 
 			if ( ent.GetTeam() != playerTeam )
@@ -616,6 +659,35 @@ void function PlayerUsesMaphackBurncardThreaded( entity player )
 		cleanup = false
 		affectedEntities.clear()
 		wait MAPHACK_PULSE_DELAY - MAPHACK_PULSE_LENGTH
+	}
+}
+
+void function NPCWarMapHack_ScanMinimap( entity player, float displayTime )
+{
+	player.EndSignal( "OnDeath" )
+	player.EndSignal( "OnDestroy" )
+
+	OnThreadEnd(
+		function() : ( player )
+		{
+			if ( IsValid( player ) )
+				NPCWarMapHack_RestoreMinimap( player )
+		}
+	)
+
+	waitthread ScanMinimap( player, false, displayTime )
+}
+
+void function NPCWarMapHack_RestoreMinimap( entity player )
+{
+	// ScanMinimap removes PAS_MINIMAP_ALL through TakePassive, whose generic cleanup
+	// resets soldiers and Spectres to default visibility. Restore NPC War's baseline.
+	array<entity> alwaysVisibleNPCs = GetNPCArrayByClass( "npc_soldier" )
+	alwaysVisibleNPCs.extend( GetNPCArrayByClass( "npc_spectre" ) )
+	foreach ( entity npc in alwaysVisibleNPCs )
+	{
+		if ( IsAlive( npc ) && npc.GetTeam() != player.GetTeam() )
+			npc.Minimap_AlwaysShow( 0, player )
 	}
 }
 
