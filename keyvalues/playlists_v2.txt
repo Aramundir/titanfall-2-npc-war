@@ -12,17 +12,8 @@ playlists
 				description #PL_aitdm_desc
 				hint #PL_aitdm_hint
 				abbreviation #PL_aitdm_abbr
-				suddendeath_timelimit 2
-				gm_hardcore_settings 0
-				spawn_zone_enabled 0
-				earn_meter_tick_frac 0
-				escalation_enabled 1
-				skyshow_enabled 1
-				riff_allow_npcs 1
 				scorelimit 2500
 				timelimit 25
-				earn_meter_titan_multiplier 100
-				enable_spectre_hacking 0
 				color		"88 220 151 255"
 
 				gamemode_score_hint #GAMEMODE_SCORE_HINT_TDM
