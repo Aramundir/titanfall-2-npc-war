@@ -94,7 +94,9 @@ void function Evac_Init()
 
 void function AddEvacNode( entity evacNode )
 {
+	int nodeIndex = file.evacNodes.len()
 	file.evacNodes.append( evacNode )
+	print( "NPCWAR_EVAC registration source=map index=" + nodeIndex + " origin=" + evacNode.GetOrigin() + " angles=" + evacNode.GetAngles() )
 }
 
 void function SetEvacSpaceNode( entity spaceNode )
@@ -117,10 +119,17 @@ void function EvacEpilogueSetup()
 void function EvacEpilogue()
 {
 	int winner = GetWinningTeam()
+	int maxTeams = GetCurrentPlaylistVarInt( "max_teams", 2 )
+	bool hasAutomaticNode = IsValid( GetEnt( "escape_node1" ) )
 
 	// make sure we don't run evac if it won't be supported for current map/gamestate
-	bool canRunEvac = GetCurrentPlaylistVarInt( "max_teams", 2 ) == 2 && ( winner == TEAM_MILITIA || winner == TEAM_IMC ) &&
-		( file.evacNodes.len() > 0 || IsValid( GetEnt( "escape_node1" ) ) ) // code assumes escape_node1 should be first node if automatically registering
+	bool canRunEvac = maxTeams == 2 && ( winner == TEAM_MILITIA || winner == TEAM_IMC ) &&
+		( file.evacNodes.len() > 0 || hasAutomaticNode ) // code assumes escape_node1 should be first node if automatically registering
+
+	print(
+		"NPCWAR_EVAC epilogue map=" + GetMapName() + " winner=" + winner + " evacTeam=" + GetOtherTeam( winner ) + " maxTeams=" + maxTeams +
+		" registeredNodes=" + file.evacNodes.len() + " hasEscapeNode1=" + hasAutomaticNode + " canRun=" + canRunEvac
+	)
 
 	if ( canRunEvac )
 	{
@@ -217,8 +226,13 @@ void function Evac( int evacTeam, float initialWait, float arrivalTime, float wa
 {
 	// get evac ship sound and model for specific team
 	EvacShipSetting evacShip = GetEvacShipSettingByTeam( evacTeam )
+	print(
+		"NPCWAR_EVAC request map=" + GetMapName() + " evacTeam=" + evacTeam + " initialWait=" + initialWait + " arrivalTime=" + arrivalTime +
+		" waitTime=" + waitTime + " registeredNodesBeforeWait=" + file.evacNodes.len() + " customNode=" + IsValid( customEvacNode )
+	)
 
 	wait initialWait
+	print( "NPCWAR_EVAC selection_begin time=" + Time() + " registeredNodes=" + file.evacNodes.len() + " customNode=" + IsValid( customEvacNode ) )
 
 	// setup evac nodes if not manually registered
 	if ( file.evacNodes.len() == 0 && !IsValid( customEvacNode ) )
@@ -230,7 +244,19 @@ void function Evac( int evacTeam, float initialWait, float arrivalTime, float wa
 				break
 
 			file.evacNodes.append( newNode )
+			print(
+				"NPCWAR_EVAC registration source=automatic name=escape_node" + i + " index=" + ( file.evacNodes.len() - 1 ) +
+				" origin=" + newNode.GetOrigin() + " angles=" + newNode.GetAngles()
+			)
 		}
+	}
+	else if ( file.evacNodes.len() > 0 )
+	{
+		print( "NPCWAR_EVAC automatic_registration skipped=map_nodes_already_registered count=" + file.evacNodes.len() )
+	}
+	else
+	{
+		print( "NPCWAR_EVAC automatic_registration skipped=custom_node" )
 	}
 
 	// setup space node if not manually registered
@@ -238,8 +264,25 @@ void function Evac( int evacTeam, float initialWait, float arrivalTime, float wa
 		file.spaceNode = GetEnt( "spaceNode" )
 
 	entity evacNode = customEvacNode
-	if ( !IsValid( customEvacNode ) )
-		evacNode = file.evacNodes.getrandom()
+	if ( IsValid( customEvacNode ) )
+	{
+		print( "NPCWAR_EVAC selection mode=custom origin=" + customEvacNode.GetOrigin() + " angles=" + customEvacNode.GetAngles() )
+	}
+	else
+	{
+		print( "NPCWAR_EVAC selection mode=uniform_random candidateCount=" + file.evacNodes.len() )
+		for ( int i = 0; i < file.evacNodes.len(); i++ )
+		{
+			entity candidate = file.evacNodes[ i ]
+			print( "NPCWAR_EVAC candidate index=" + i + " origin=" + candidate.GetOrigin() + " angles=" + candidate.GetAngles() )
+		}
+
+		int selectedIndex = RandomInt( file.evacNodes.len() )
+		evacNode = file.evacNodes[ selectedIndex ]
+		print( "NPCWAR_EVAC random_roll min=0 maxExclusive=" + file.evacNodes.len() + " result=" + selectedIndex )
+	}
+
+	print( "NPCWAR_EVAC selected origin=" + evacNode.GetOrigin() + " angles=" + evacNode.GetAngles() + " evacTeam=" + evacTeam )
 
 	file.currentEvacNode = evacNode
 	thread NPCWarEpilogue_DirectForcesToEvac( evacTeam )
