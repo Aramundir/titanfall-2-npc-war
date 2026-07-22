@@ -1,5 +1,9 @@
 # NPC War Hardpoint AI Testing Report
 
+## Status
+
+This experiment is complete. NPC War kept the combined minimum-commitment and utility strategy. The decision-level telemetry, utility shadow comparison, and automated scenario harness were subsequently removed from the runtime mod; this document preserves their design and results.
+
 ## Goal
 
 NPC War gives AI squads strategic objectives in Amped Hardpoint. We wanted the AI to remain cohesive and somewhat unpredictable without allowing obviously bad behavior such as abandoning owned points before they are amped or sending the entire army to one objective while another urgent objective is uncovered.
@@ -8,7 +12,7 @@ The immediate question was whether this should be solved through fixed allocatio
 
 ## Shared Decision Model
 
-The live AI and automated tests now use the same entity-free utility-scoring function. Game entities are converted into plain decision snapshots containing:
+During the experiment, the live AI and automated tests used the same entity-free utility-scoring function. Game entities were converted into plain decision snapshots containing:
 
 - Hardpoint owner and capping team
 - Capture and amp progress
@@ -18,21 +22,29 @@ The live AI and automated tests now use the same entity-free utility-scoring fun
 - Current squad objective
 - Number of owned and uncontrolled points
 
-This prevents the test harness from becoming a separate imitation of the actual AI logic.
+This prevented the test harness from becoming a separate imitation of the actual AI logic.
 
 ## Strategies Compared
 
-Every synthetic battlefield is evaluated by three strategies:
+Every synthetic battlefield was evaluated by three strategies:
 
 1. **Utility only:** Uses weighted scoring with no mandatory allocation pass.
 2. **Current strategy:** Fills minimum strategic commitments first, then gives surplus squads to the utility scorer.
 3. **Strong saturation:** Uses utility scoring with a stronger penalty for committing additional squads to an already-covered objective.
 
-Only the current strategy controls live NPCs. The other strategies run as shadow comparisons and never issue orders.
+Only the combined strategy ever controlled live NPCs. The alternatives ran as shadow comparisons and never issued orders.
+
+### Candidate Assessment
+
+**Utility only** was the most fluid and least prescriptive candidate. Distance, objective state, friendly and enemy presence, current orders, and saturation all influenced squad choices. Its strength was organic concentration and variation. Its failure was that independent squads could make the same locally reasonable choice, causing nearly the whole army to attack one point while owned points remained unamped or urgent enemy amps went unanswered.
+
+**Combined minimum commitments plus utility** first reserved the smallest force needed for urgent strategic work, then let every surplus squad use the utility scorer. It guaranteed one squad for an owned point that still needed amping, two for an owned contested point or an enemy point actively amping, and one for an ordinary uncontrolled point. Its strength was strategic coherence without prescribing the entire formation. Its tradeoff was a small amount of forced allocation, but surplus squads still retained freedom to mass, reinforce, or change objectives.
+
+**Strong saturation** remained entirely utility-driven but doubled the penalty for sending more squads to an already-covered point. It successfully spread forces and protected against full concentration. Its failure was excessive caution: it continued distributing squads around safe, completed positions when concentrating those squads into an attack was the stronger choice. It made behavior balanced-looking but less decisive.
 
 ## Automated Scenarios
 
-The suite currently executes **352 checks**:
+The retired suite executed **352 checks**:
 
 - Eight canonical and mirrored commitment checks
 - 200 randomized commitment-state invariants
@@ -72,18 +84,20 @@ The complete automated run finished with:
 NPCWAR_CP_TESTS cases=352 failures=0
 ```
 
-## Live Telemetry
+## Experimental Telemetry
 
-The game can record two telemetry levels:
+During testing, the game could record two decision-telemetry levels:
 
 - **Summary:** One battlefield snapshot per team every ten seconds
 - **Detailed:** Summary data plus every squad decision and candidate score
 
-Snapshots report active tracked squads, objective switches, shadow-strategy disagreements, point state, assignments, practical coverage, and desired commitment. Detailed records identify the selected objective and what utility-only scoring would have selected.
+Snapshots reported active tracked squads, objective switches, shadow-strategy disagreements, point state, assignments, practical coverage, and desired commitment. Detailed records identified the selected objective and what utility-only scoring would have selected.
 
-## Six-Match A/B Live Session
+This instrumentation was intentionally temporary. It has been replaced by lightweight balance telemetry that records scores, caps, Director state, squad population, territory, and reinforcement dispatches without evaluating decisions.
 
-This session holds the map and gameplay settings constant while comparing two three-match cohorts. Cohort A enables Hot Player Pressure; Cohort B disables only Hot Player Pressure. Each match gets its own record so individual outcomes remain visible before any aggregate conclusion is drawn.
+## Live A/B Session
+
+This session holds the map and gameplay settings constant while comparing two three-match cohorts. Cohort A enables Hot Player Pressure; Cohort B disables only Hot Player Pressure. A later enabled-pressure retest is recorded separately from the original cohorts. Each match gets its own record so individual outcomes remain visible before any aggregate conclusion is drawn.
 
 ### Cohort A: Hot Player Pressure Enabled
 
@@ -345,6 +359,74 @@ Match 3 weakens the idea that IMC won simply because it prioritized Hardpoints b
 
 Two consecutive expanded-telemetry matches now show IMC retaining a Hot Player Pressure bonus after recovering the score lead. This is becoming a repeatable candidate explanation, though the five-match session should still finish before balance rules change.
 
+### Additional Enabled-Pressure Retest
+
+Source log: `nslog2026-07-21 11-46-00.txt`
+
+Conditions:
+
+- Map: Colony (`mp_colony02`)
+- Militia infantry budget: 14
+- IMC infantry budget: 18
+- Director: enabled
+- Hot Player Pressure: enabled
+- Hot Player Dampening: enabled, but never triggered
+- Result: Militia/player win, Militia 299 to IMC 270
+- Score margin: 29
+- Samples: 61 snapshots per team, approximately 10 seconds apart
+- Script errors in the match telemetry: none
+
+This is the first recorded win with Hot Player Pressure enabled after the three consecutive losses above. Like those three losses, it had no Hot Player Dampening events. The meaningful common condition was Hot Player Pressure, not dampening.
+
+#### Strategic Outcome
+
+| Metric | IMC | Militia |
+|---|---:|---:|
+| Final score | 270 | 299 |
+| Average owned Hardpoints | 1.23 | 1.52 |
+| Average owned and fully amped Hardpoints | 0.33 | 0.46 |
+| Full-control snapshots | 6, about 60 seconds | 8, about 80 seconds |
+| Zero-control snapshots | 10, about 100 seconds | 12, about 120 seconds |
+| Required commitments satisfied by assigned squads | 84.5% | 83.1% |
+| Required commitments satisfied by practical nearby coverage | 58.3% | 56.0% |
+| Surplus squad assignments beyond desired commitments | 107 | 85 |
+| Average share assigned to the most crowded point | 53.4% | 55.8% |
+| Squad decisions | 375 | 314 |
+| Objective switches | 81 | 82 |
+| Utility-shadow disagreements | 47 | 47 |
+
+Militia held more territory and more fully amped territory on average. Planned and practical commitment coverage remained close between teams, while IMC again had more surplus assignments and decisions. Unlike the previous enabled-pressure losses, that greater IMC force throughput did not overturn Militia's stronger objective result.
+
+#### Director and Reinforcement Outcome
+
+Effective-cap snapshot periods:
+
+| Team and cap | Pressure | Snapshots | Approximate duration |
+|---|---:|---:|---:|
+| IMC 18 | 0 | 20 | 200 seconds |
+| IMC 22 | 1 | 41 | 410 seconds |
+| Militia 14 | 0 | 61 | 610 seconds |
+
+Reinforcement dispatches:
+
+| Team | Total | Dropships | Droppods | Average deficit at dispatch | Lowest alive count |
+|---|---:|---:|---:|---:|---:|
+| IMC | 56 | 26 | 30 | 5.54 | 10 |
+| Militia | 37 | 27 | 10 | 2.41 | 8 |
+
+Hot Player Pressure did trigger. At approximately 217 seconds, IMC moved from pressure 0 and cap 18 to pressure 1 and cap 22 while the sampled score was effectively tied. It retained that bonus for the remaining 41 snapshots. IMC received 19 more dispatches than Militia, including three times as many emergency droppods. Hot Player Dampening remained zero for both teams throughout the match.
+
+#### Retest Interpretation
+
+The enabled-pressure record is now one win and three losses. This match is an important counterexample to the earlier deterministic-looking pattern:
+
+- Hot Player Pressure activated and remained active for most of the match.
+- IMC received the same kind of sustained cap and emergency-refill advantage seen in the losses.
+- Militia nevertheless maintained the better objective result and won by 29.
+- No Hot Player Dampening event occurred, matching the previous three losses.
+
+The result shows that Hot Player Pressure strongly changes force availability but does not make defeat inevitable. It also means the earlier comparison must not describe dampening as the cause: dampening was configured but inactive in all four enabled-pressure matches.
+
 ### Cohort B: Hot Player Pressure Disabled
 
 ### Match 4
@@ -444,23 +526,27 @@ This first control match supports Hot Player Pressure as the main source of the 
 
 One control match is not sufficient by itself, but it produces the exact behavioral difference predicted by the Hot Player Pressure hypothesis.
 
-### Match 5
+The completed decision-making investigation included four matches with Hot Player Pressure enabled and one control match with it disabled. Those balance results were not used to choose between decision trees because both factions ran the same live strategy. They did show that force availability and Director behavior could dominate match outcomes even when objective selection was working correctly.
 
-Pending.
+## Abandonment Check
 
-### Match 6
+Across the five recorded matches, the strict abandonment definition was an owned, unamped point with zero assigned squads and zero practical nearby coverage.
 
-Pending.
+- 871 owned-point samples were inspected at ten-second intervals.
+- 35 samples met the strict definition, a 4.0% rate.
+- The samples formed 33 incidents.
+- No incident lasted 30 seconds or longer.
+- The longest observed incident was approximately 20 seconds; most appeared in only one snapshot.
 
-The final comparison will use all three matches in each cohort. The current observed result is `0-3` with Hot Player Pressure enabled and `1-0` with it disabled.
+Owned points sometimes remained below full amp for much longer, but squads were assigned, physically present, or both. That indicated interrupted execution through combat, travel, contesting, or deaths rather than a strategic decision to abandon the point.
 
-## Current Conclusion
+## Final Decision
 
-The combined minimum-commitment and utility strategy currently provides the best tested compromise:
+The combined minimum-commitment and utility strategy provided the best tested compromise and remains NPC War's live behavior:
 
 - More reliable than utility scoring alone
 - More decisive than strong anti-concentration scoring
 - Still allows surplus forces to mass for a major attack
 - Preserves the special rule that a team with no foothold may concentrate on one nearby objective
 
-Further balance decisions should use repeated matches with Summary telemetry. Detailed telemetry is reserved for investigating a specific irrational deployment.
+The experiment was closed because automated scenarios passed, live play produced cohesive and dynamic combat, and strict abandonment was brief and uncommon. Continuing to tune objective weights without a demonstrated failure risked overfitting the AI and making matches more predictable. Future work therefore returns to force balance, Director behavior, population accounting, and reinforcement flow.

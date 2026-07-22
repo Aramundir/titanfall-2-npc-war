@@ -66,7 +66,6 @@ const string NPCWAR_MILITIA_TITAN_DAMAGE_VAR = "npcwar_militia_titan_damage"
 const string NPCWAR_IMC_TITAN_HEALTH_VAR = "npcwar_imc_titan_health"
 const string NPCWAR_IMC_TITAN_DAMAGE_VAR = "npcwar_imc_titan_damage"
 const string NPCWAR_CP_TELEMETRY_VAR = "npcwar_cp_telemetry"
-const string NPCWAR_CP_SCENARIO_TESTS_VAR = "npcwar_cp_scenario_tests"
 const string NPCWAR_DIRECTOR_COMEBACK_INFANTRY_VAR = "npcwar_director_comeback_infantry"
 const string NPCWAR_DIRECTOR_HOT_PLAYER_PRESSURE_VAR = "npcwar_director_hot_player_pressure"
 const string NPCWAR_DIRECTOR_HOT_PLAYER_DAMPENING_VAR = "npcwar_director_hot_player_dampening"
@@ -213,8 +212,7 @@ void function NPCWarPilotModeSettings_Init()
 	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_MILITIA_TITAN_DAMAGE_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "Militia Titan Damage" )
 	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_IMC_TITAN_HEALTH_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "IMC Titan Health" )
 	AddPrivateMatchModeSettingArbitrary( NPCWAR_SETTINGS_CATEGORY_UNIT_TUNING, NPCWAR_IMC_TITAN_DAMAGE_VAR, string( NPCWAR_UNIT_MULTIPLIER_DEFAULT ), "IMC Titan Damage" )
-	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIAGNOSTICS, NPCWAR_CP_TELEMETRY_VAR, [ "Off", "Summary", "Detailed" ], "0", "Hardpoint Telemetry" )
-	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIAGNOSTICS, NPCWAR_CP_SCENARIO_TESTS_VAR, [ "Off", "Run Once" ], "0", "Hardpoint Scenario Tests" )
+	AddPrivateMatchModeSettingEnum( NPCWAR_SETTINGS_CATEGORY_DIAGNOSTICS, NPCWAR_CP_TELEMETRY_VAR, [ "Off", "On" ], "1", "Balance Telemetry" )
 }
 
 float function NPCWarUnitTuning_HealthMultiplier( int team, string unitType )
@@ -440,8 +438,7 @@ void function NPCWarStaticSettings_Cache()
 	NPCWarStaticSettings_CacheInt( NPCWAR_IMC_MARVIN_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
 	NPCWarStaticSettings_CacheInt( NPCWAR_MILITIA_GUNSHIP_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
 	NPCWarStaticSettings_CacheInt( NPCWAR_IMC_GUNSHIP_BUDGET_VAR, NPCWAR_BUDGET_DEFAULT )
-	NPCWarStaticSettings_CacheInt( NPCWAR_CP_TELEMETRY_VAR, 0 )
-	NPCWarStaticSettings_CacheInt( NPCWAR_CP_SCENARIO_TESTS_VAR, 0 )
+	NPCWarStaticSettings_CacheInt( NPCWAR_CP_TELEMETRY_VAR, 1 )
 
 	file.staticSettingsCached = true
 }

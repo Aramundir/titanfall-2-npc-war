@@ -343,12 +343,11 @@ Player Pilot health and damage are unchanged. Ability and Boost summons, Special
 
 ### NPC War > Diagnostics
 
-These development tools are new in NPC War and default to off. They do not alter match rules or issue different NPC orders.
+This diagnostic is new in NPC War and does not alter match rules or issue NPC orders.
 
-- `Hardpoint Telemetry`: `Summary` writes periodic point/assignment snapshots to the Northstar log; `Detailed` also records every squad decision and candidate score.
-- `Hardpoint Scenario Tests`: runs commitment invariants and full-team strategy comparisons once while the mode initializes, then prints scenario reports and a pass/failure total.
+- `Balance Telemetry`: enabled by default. It records periodic score, territory, infantry-cap, Director-pressure, squad-population, and reinforcement data for balance analysis.
 
-Telemetry also evaluates the utility-only objective strategy in shadow mode. The shadow choice is logged for comparison but is never sent to an NPC. See `docs/hardpoint_telemetry.md` for the log format and test workflow.
+The retired decision-making experiment and the reason NPC War kept its current Hardpoint strategy are documented in `docs/hardpoint_testing_report.md`. Current balance logging is documented in `docs/balance_telemetry.md`.
 
 ## Epilogue
 
