@@ -735,7 +735,6 @@ void function AiGameModes_SpawnPilotCanEmbark( vector pos, vector rot, int team 
 	entity titan = AiGameModes_SpawnTitanForPilot( pilot, pos, rot ) // send titan a little bit later
 	wait 2
 	DispatchSpawn( pilot )
-	NPCWar_MarkPopulationUnit( pilot, NPCWAR_POPULATION_PILOT )
 
 	if( team == TEAM_MILITIA )
 		pilot.SetModel( $"models/humans/pilots/sp_medium_reaper_m.mdl" )
@@ -773,12 +772,14 @@ void function AiGameModes_SpawnPilotCanEmbark( vector pos, vector rot, int team 
 	titan.SetTitle( pilot.GetTitle() + "'s Titan" )
 	titan.s.npcWarPilotEmbarkStarted <- false
 	titan.s.npcWarAutonomousFallback <- false
+	thread ForceStartTitan( titan, pilot )
 	titan.WaitSignal( "TitanHotDropComplete" )
+	if ( titan.s.npcWarAutonomousFallback )
+		return
 
 	thread NpcPilotRunsToEmbarkTitan( pilot, titan )
 	wait 2.0
 
-	thread ForceStartTitan( titan, pilot )
 	waitthread NpcPilotRunsToEmbarkTitan( pilot, titan )
 
 	if ( !IsAlive( titan ) || titan.s.npcWarAutonomousFallback )
@@ -826,18 +827,19 @@ void function AiGameModes_SpawnPilotCanEmbark( vector pos, vector rot, int team 
 
 void function ForceStartTitan( entity titan, entity pilot )
 {
-	wait 15
+	wait 10
 
 	if ( !IsAlive( titan ) || titan.GetTitanSoul().soul.seatedNpcPilot.isValid )
 		return
 
-	if ( titan.s.npcWarPilotEmbarkStarted || titan.s.npcWarAutonomousFallback )
+	if ( titan.s.npcWarAutonomousFallback )
 		return
 
 	titan.s.npcWarAutonomousFallback = true
 
 	if ( IsAlive( pilot ) )
 	{
+		pilot.Signal( "NPCWarAbortPilotEmbark" )
 		pilot.Signal( "ForceStartMove" )
 		thread PilotHandler( pilot )
 	}
@@ -908,8 +910,9 @@ entity function AiGameModes_SpawnTitanForPilot( entity pilot, vector pos, vector
 	SetSpawnOption_AISettings( titan, aiset )
 	SetSpawnOption_NPCTitan( titan, TITAN_HENCH )
     titan.ai.titanSpawnLoadout.setFile = setfile
-    OverwriteLoadoutWithDefaultsForSetFile( titan.ai.titanSpawnLoadout )
+	OverwriteLoadoutWithDefaultsForSetFile( titan.ai.titanSpawnLoadout )
 	DispatchSpawn( titan )
+	NPCWar_MarkPopulationUnit( titan, NPCWAR_POPULATION_PILOT )
 
 	NpcPilotSetPetTitan( pilot, titan )
 	thread NPCTitanHotdrops( titan, false )
@@ -1042,8 +1045,8 @@ void function DelayedTitanHandler( entity titan )
 function OnNpcTitanBecomesPilot( pilot, titan )
 {
 	expect entity( pilot )
-	pilot.SetInvulnerable()
-	thread DelayedPilotHandler( pilot )
+	NPCWar_MarkPopulationUnit( pilot, NPCWAR_POPULATION_PILOT )
+	thread PilotHandler( pilot )
 	/*
 	if( pilot.GetTeam()  == TEAM_MILITIA )
 	{
@@ -1064,16 +1067,6 @@ function OnNpcTitanBecomesPilot( pilot, titan )
 		thread CaptainThink( pilot )
 	}
 	*/
-}
-
-void function DelayedPilotHandler( entity pilot )
-{
-	wait 1
-	if( IsAlive( pilot ) )
-	{
-		pilot.ClearInvulnerable()
-		thread PilotHandler( pilot )
-	}
 }
 
 void function PilotHandler( entity pilot )

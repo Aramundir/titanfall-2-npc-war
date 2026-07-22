@@ -60,6 +60,7 @@ function AiPilots_Init()
 	RegisterSignal( "NpcTitanBecomesPilot" )
 	RegisterSignal( "StopCallTitanThink" )
 	RegisterSignal( "NpcTitanRespawnAvailableUpdated" )
+	RegisterSignal( "NPCWarAbortPilotEmbark" )
 
 	level.onNpcPilotBecomesTitanCallbacks	<- []
 	level.onNpcTitanBecomesPilotCallbacks	<- []
@@ -521,6 +522,7 @@ function NpcPilotEmbarksTitan( entity pilot, entity titan )
 
 	pilot.EndSignal( "OnDeath" )
 	pilot.EndSignal( "OnDestroy" )
+	pilot.EndSignal( "NPCWarAbortPilotEmbark" )
 	titan.EndSignal( "OnDestroy" )
 	titan.EndSignal( "OnDeath" )
 
@@ -532,8 +534,16 @@ function NpcPilotEmbarksTitan( entity pilot, entity titan )
 				if ( titan.ContextAction_IsBusy() )
 					titan.ContextAction_ClearBusy()
 				titan.ClearInvulnerable()
+			}
 
-				Assert( !IsAlive( pilot ) )
+			if ( IsAlive( pilot ) )
+			{
+				if ( pilot.GetParent() != null )
+					pilot.ClearParent()
+				pilot.Anim_Stop()
+				if ( pilot.ContextAction_IsBusy() )
+					pilot.ContextAction_ClearBusy()
+				pilot.ClearInvulnerable()
 			}
 		}
 	)
