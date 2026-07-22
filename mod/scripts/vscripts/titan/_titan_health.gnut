@@ -50,6 +50,7 @@ struct
 
 void function TitanHealth_Init()
 {
+	printt( "[NPCWarInvestigation] match settings", "map", GetMapName(), "mode", GameRules_GetGameMode(), "aegis", GetCurrentPlaylistVarInt( "aegis_upgrades", 0 ), "shieldRegen", GetCurrentPlaylistVarInt( "titan_shield_regen", 0 ), "coreMultiplier", GetCurrentPlaylistVarFloat( "earn_meter_titan_multiplier", 1.0 ) )
 	RegisterSignal( SIGNAL_TITAN_HEALTH_REGEN )
 	RegisterSignal( SIGNAL_TITAN_SHIELD_REGEN )
 	RegisterSignal( "Doomed" )
@@ -730,6 +731,7 @@ void function TitanShieldRegenThink_Internal( entity soul )
 	bool shieldHealthSound = false
 	int maxShield = soul.GetShieldHealthMax()
 	float lastTime = Time()
+	bool wasRegenerating = false
 
 	while ( true )
 	{
@@ -768,7 +770,13 @@ void function TitanShieldRegenThink_Internal( entity soul )
 			shieldHealthSound = false
 		}
 
-		if ( Time() >= soul.nextRegenTime && TitanHasRegenningShield( soul ) )
+		bool isRegenerating = Time() >= soul.nextRegenTime && TitanHasRegenningShield( soul )
+		if ( isRegenerating && !wasRegenerating && titan.IsPlayer() )
+			printt( "[NPCWarInvestigation] shield regen begin", "titan", titan, "health", titan.GetHealth(), "maxHealth", titan.GetMaxHealth(), "shield", shieldHealth, "maxShield", maxShield, "nextRegenTime", soul.nextRegenTime )
+		else if ( !isRegenerating && wasRegenerating && titan.IsPlayer() )
+			printt( "[NPCWarInvestigation] shield regen stop", "titan", titan, "health", titan.GetHealth(), "shield", shieldHealth, "nextRegenTime", soul.nextRegenTime )
+
+		if ( isRegenerating )
 		{
 			float shieldRegenRate = maxShield / ( GetShieldRegenTime( soul ) / SHIELD_REGEN_TICK_TIME )
 
@@ -783,6 +791,7 @@ void function TitanShieldRegenThink_Internal( entity soul )
 
 			soul.SetShieldHealth( minint( soul.GetShieldHealthMax(), int( shieldHealth + shieldRegenRate ) ) )
 		}
+		wasRegenerating = isRegenerating
 
 		lastShieldHealth = shieldHealth
 		lastTime = Time()
@@ -917,7 +926,10 @@ void function AddCreditToTitanCoreBuilderForTitanDamageInflicted( entity titanAt
 	float rate = ( rateRaw * 0.01 )
 	float credit = ( rate * damage )
 	if ( credit > 0.0 )
+	{
+		printt( "[NPCWarInvestigation] core source titan damage inflicted", "titan", titanAttacker, "damage", damage, "rawCredit", credit )
 		AddCreditToTitanCoreBuilder( titanAttacker, credit )
+	}
 }
 
 void function AddCreditToTitanCoreBuilderForTitanDamageReceived( entity titanVictim, float damage )
@@ -928,7 +940,10 @@ void function AddCreditToTitanCoreBuilderForTitanDamageReceived( entity titanVic
 	float rate = ( rateRaw * 0.01 )
 	float credit = ( rate * damage )
 	if ( credit > 0.0 )
+	{
+		printt( "[NPCWarInvestigation] core source titan damage received", "titan", titanVictim, "damage", damage, "rawCredit", credit )
 		AddCreditToTitanCoreBuilder( titanVictim, credit )
+	}
 }
 
 void function AddCreditToTitanCoreBuilderForDoomInflicted( entity titanAttacker )
@@ -938,7 +953,10 @@ void function AddCreditToTitanCoreBuilderForDoomInflicted( entity titanAttacker 
 	float valueRaw = CORE_BUILD_PERCENT_FROM_DOOM_INFLICTED
 	float credit = ( valueRaw * 0.01 )
 	if ( credit > 0.0 )
+	{
+		printt( "[NPCWarInvestigation] core source doom inflicted", "titan", titanAttacker, "rawCredit", credit )
 		AddCreditToTitanCoreBuilder( titanAttacker, credit )
+	}
 }
 
 void function AddCreditToTitanCoreBuilderForDoomEntered( entity titanVictim )
@@ -948,7 +966,10 @@ void function AddCreditToTitanCoreBuilderForDoomEntered( entity titanVictim )
 	float valueRaw = CORE_BUILD_PERCENT_FROM_DOOM_ENTERED
 	float credit = ( valueRaw * 0.01 )
 	if ( credit > 0.0 )
+	{
+		printt( "[NPCWarInvestigation] core source doom entered", "titan", titanVictim, "rawCredit", credit )
 		AddCreditToTitanCoreBuilder( titanVictim, credit )
+	}
 }
 
 void function AddCreditToTitanCoreBuilder( entity titan, float credit )
@@ -1002,9 +1023,11 @@ void function AddCreditToTitanCoreBuilder( entity titan, float credit )
 	if ( newTotalCredit >= 0.998 ) // JFS - the rui has a +0.001 for showing the meter as full. This fixes the case where the core meter displays 100 but can't be fired.
 		newTotalCredit = 1.0
 	SoulTitanCore_SetNextAvailableTime( soul, newTotalCredit )
+	printt( "[NPCWarInvestigation] core credit applied", "titan", titan, "bossPlayer", bossPlayer, "finalCredit", credit, "oldCore", oldTotalCredit, "newCore", newTotalCredit, "coreModifier", titan.IsPlayer() ? titan.GetPlayerNetFloat( "coreMeterModifier" ) : 0.0, "monarchBonus", SoulHasPassive( soul, ePassives.PAS_VANGUARD_COREMETER ) )
 
 	if ( IsValid( bossPlayer ) && !coreWasAvailable && IsCoreChargeAvailable( bossPlayer, soul ) )
 	{
+		printt( "[NPCWarInvestigation] core became available; callsign follows", "titan", titan, "bossPlayer", bossPlayer, "oldCore", oldTotalCredit, "newCore", newTotalCredit )
 		AddPlayerScore( bossPlayer, "TitanCoreEarned", bossPlayer ) // this will show the "Core Earned" callsign event
 		#if MP
 			UpdateTitanCoreEarnedStat( bossPlayer, titan )
