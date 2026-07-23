@@ -347,7 +347,7 @@ This diagnostic is new in NPC War and does not alter match rules or issue NPC or
 
 - `Balance Telemetry`: enabled by default. It records periodic score, territory, infantry-cap, Director-pressure, squad-population, and reinforcement data for balance analysis.
 
-The retired decision-making experiment and the reason NPC War kept its current Hardpoint strategy are documented in `docs/hardpoint_testing_report.md`. Current balance logging is documented in `docs/balance_telemetry.md`.
+The retired decision-making experiment and the reason NPC War kept its current Hardpoint strategy are documented in `docs/hardpoint_testing_report.md`. The exploratory Hot Player Pressure match series is documented separately in `docs/hot_player_pressure_testing_report.md`. Current balance logging is documented in `docs/balance_telemetry.md`.
 
 ## Epilogue
 

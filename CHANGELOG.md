@@ -39,10 +39,10 @@ This changelog tracks NPC War changes only. Historical fork notes are kept brief
 - Removed the inherited `earn_meter_titan_multiplier 100` override so Titan core charge uses Northstar's normal earn-meter values.
 - Exposed `Player Pilot Death Score` as an arbitrary-value private-match setting.
 
-### Hardpoint And Balance Work
+### Balance Telemetry And Hardpoint Work
 
-- Added lightweight, enabled-by-default Hardpoint balance telemetry for score, territory, population, Director pressure, and reinforcement analysis.
-- Added `docs/balance_telemetry.md` and expanded the Hardpoint testing report with the experiment results and final decision.
+- Added lightweight, enabled-by-default balance telemetry for score, population, Director pressure, and reinforcement analysis in all supported modes, with additional territory fields in Hardpoint.
+- Added balance-telemetry documentation, a bounded Hardpoint AI strategy report, and a separate exploratory Hot Player Pressure testing report.
 
 ### Documentation
 
