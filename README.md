@@ -377,7 +377,7 @@ These ideas are not live NPC War features:
 - Field objectives or HVT contracts.
 - Player economy or progression.
 - Boost Drops or Direct Grant boost rewards.
-- Solo Bounty Hunt opposition.
+- Rival Operators or automated Bounty Hunt opposition.
 - Extraction shooter flow.
 - Campaign framework.
 

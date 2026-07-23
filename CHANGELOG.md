@@ -2,23 +2,53 @@
 
 This changelog tracks NPC War changes only. Historical fork notes are kept brief so this file stays focused on the current mod.
 
-## Unreleased
+## 0.2.0
 
-- Fixed AI Pilot Titans remaining kneeling under their Titanfall shield forever when their assigned Pilot cannot reach them; after a bounded approach window, the Titan now activates autonomously and the Pilot returns to battle.
-- Fixed reinforcement population accounting so special units and summons no longer consume infantry slots; NPC War-spawned special units use their own budgets, while all Titans still count against the Titan budget.
-- Restored `Hot Player Pressure` as a separate Director option that adds one pressure level against a hot player's team.
-- Replaced the separate `Leader Dampening` option with `Hot Player Dampening`, which reduces infantry budget from a hot player's team if they are leading hard.
-- Simplified player pilot death scoring; `Player Pilot Death Score` is now always a fixed private match setting.
-- Removed the experimental High-Value Target/Field Objectives implementation from the live mod for now; future design notes remain in `docs/future_mode_ideas.md`.
-- Fixed boost inventory use so stacked boosts are popped asynchronously instead of calling the inventory wait path from a weapon-use callback.
-- Changed infantry dropships to use a per-team cooldown instead of blocking the whole infantry spawner, allowing drop pods to continue reinforcing during dropship cooldowns.
-- Added cap-relative infantry refill rules: minor losses wait for dropship-style reinforcement, larger losses can use drop pods, and severe depletion prioritizes drop pods.
-- Reworded Director leader-dampening messages so they read as command conserving resources while a faction is winning.
-- Changed the NPC War Director to be enabled by default.
-- Removed inherited Grunt Mode 2 Attrition score-limit and time-limit overrides so standard Northstar private match `Match` settings control match length and score limits.
-- Renamed the inherited script namespace to `npcwar`.
-- Renamed NPC War script files, globals, playlist keys, and convars to consistent `NPCWar`/`NPCWAR`/`npcwar` naming.
-- Removed old class-progression documentation that does not apply to NPC War.
+### Stability And Compatibility
+
+- Rebased inherited animation, health regeneration, infantry AI, evacuation, base-gametype, Reaper, rodeo, replacement-Titan, Titan-health, cloak, and grenade scripts onto the current Northstar versions.
+- Added validity checks to callable-Titan callbacks so they ignore invalid or destroyed player entities.
+- Restored NPC Pilot ejection from doomed Titans through the current doomed-Titan callback path.
+- Added bounded recovery for AI Pilot Titans whose assigned Pilot cannot reach them: the Titan activates autonomously and the Pilot returns to battle.
+- Added an explicit abort and cleanup path for interrupted AI Pilot embark sequences, including busy, invulnerability, parenting, and animation state.
+- Added cleanup for unclaimed AI Pilot Titans and their bubble shields after failed embark attempts.
+- Fixed temporary boost weapons and Map Hack cleanup so stacked boost use and temporary inventory state do not remain stuck.
+- Deduplicated overlapping NPC intro dropship spawnpoints so the intended two dropships per team deploy from distinct locations.
+
+### Population, Reinforcements, And Director
+
+- Replaced repeated full-world population scans with explicit NPC War population tracking and stale-entity cleanup.
+- Separated infantry, Reaper, Prowler, MARVIN, gunship, AI Pilot, and Titan accounting so special units and summons no longer silently consume infantry slots.
+- Updated AI Pilot and Titan ownership accounting across spawn, embark, eject, death, and failed-embark paths.
+- Changed infantry dropships to use per-team cooldowns so one faction's dropship does not block the other faction or stop drop-pod reinforcement.
+- Added cap-relative infantry refill behavior: minor losses wait for dropship reinforcement, larger deficits permit drop pods, and severe depletion prioritizes faster reinforcement.
+- Enabled the NPC War Director by default and expanded its configurable pressure, score-gap, infantry-step, special-unit bonus, and status-message controls.
+- Added configurable Militia and IMC health and damage multipliers for infantry, Reapers, Prowlers, MARVINs, gunships, AI Pilots, and Titans.
+
+### NPC Presentation And Behavior
+
+- Hid Prowlers from the minimap by default and revealed them to the detecting team while Pulse Blade or Map Hack detection is active.
+- Integrated Specialist, Shield Captain, Spectre Leader, AI Pilot, and Titan spawns with the new population accounting without charging summoned support units to infantry budgets.
+
+### Player And Match Settings
+
+- Grouped NPC War options into dedicated private-match submenus.
+- Added a choice between the Vanilla and Grunt Mode 2 boost pools.
+- Restored Spectre Hacking as an enabled-by-default option in the Pilot submenu.
+- Removed inherited playlist overrides that duplicated Northstar match settings, including score limit, time limit, sudden death, hardcore rules, spawn zones, escalation, skyshow, and general NPC allowance.
+- Removed the inherited `earn_meter_titan_multiplier 100` override so Titan core charge uses Northstar's normal earn-meter values.
+- Exposed `Player Pilot Death Score` as an arbitrary-value private-match setting.
+
+### Hardpoint And Balance Work
+
+- Added lightweight, enabled-by-default Hardpoint balance telemetry for score, territory, population, Director pressure, and reinforcement analysis.
+- Added `docs/balance_telemetry.md` and expanded the Hardpoint testing report with the experiment results and final decision.
+
+### Documentation
+
+- Documented dormant inherited features, the available weapon inventory, Bounty Hunt systems, boost behavior, and useful Northstar hooks.
+- Added `docs/northstar_rebase_status.md` to record the inherited-script audit and outstanding validation work.
+- Standardized NPC War-owned scripts, globals, playlist keys, and convars on `NPCWar`/`NPCWAR`/`npcwar` naming and removed obsolete class-progression documentation.
 
 ## 0.1.0
 

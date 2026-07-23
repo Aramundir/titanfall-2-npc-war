@@ -84,7 +84,7 @@ What it can become:
 
 - A battlefield supply drop that leaves weapons on the ground.
 - A reward for optional Field Objectives or Frontier Contracts.
-- A logistics event in a future reinforcement-resource system.
+- A logistics event in NPC War's future Reinforcement Resources system.
 - A loot source for an extraction-shooter prototype.
 
 Why it is not ready as-is:
@@ -148,7 +148,7 @@ Current status:
 
 Future tie-in:
 
-- Useful evidence for Solo Bounty Hunt rival NPCs.
+- Useful evidence for the separate Rival Operators framework.
 - Useful evidence for future custom elite unit classes.
 - Useful evidence for campaign-like encounters where an NPC "pilot" calls or boards a titan.
 
@@ -164,7 +164,7 @@ Current status:
 Future tie-in:
 
 - These are the strongest proof that NPC War can grow custom NPC classes without needing true Pilot AI.
-- Solo Bounty Hunt could use this style to create rival bounty hunters, pet prowler handlers, heavy specialists, or boss-like NPCs.
+- Rival Operators could use this style to create bounty hunters, Prowler handlers, heavy specialists, or other player-like team competitors.
 - Frontier Contracts could mark these units as optional targets without changing match win conditions.
 
 ## Live Feature: Boost Pool Overrides

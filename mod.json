@@ -1,7 +1,7 @@
 {
 	"Name" : "NPC War",
 	"Description" : "Large NPC battlefield sandbox with normal pilot loadouts",
-	"Version": "0.1.0",
+	"Version": "0.2.0",
 	"LoadPriority": 2,
 	"RequiredOnClient": false,
 	"ConVars": [

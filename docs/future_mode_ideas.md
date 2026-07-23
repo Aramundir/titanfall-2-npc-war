@@ -1,6 +1,6 @@
 # NPC War Future Mode Ideas
 
-Last updated: 2026-07-17
+Last updated: 2026-07-22
 
 This is a session-independent design notebook for NPC War and larger Titanfall 2 Northstar ideas. It should let a future Codex session understand the design direction, inspect the right local scripts, and resume without needing the original chat history.
 
@@ -18,7 +18,7 @@ NPC War should remain the core battle sandbox:
 - Refined NPC objective behavior for Attrition, Amped Hardpoint, and CTF.
 - No mandatory economy, progression, or side-objective layer.
 
-The larger ideas below should not be folded into NPC War by default. When a system starts being generally useful outside NPC War, it should become a separate mod or framework.
+The larger ideas below should not be folded into NPC War by default. When a system starts being generally useful outside NPC War, it should become a separate mod or framework. Reinforcement Resources is the exception: it exists specifically to govern NPC War's faction spawning and therefore belongs to NPC War itself.
 
 ## Outdated Or Removed Prototypes
 
@@ -506,7 +506,7 @@ Examples:
   - Enemy presence can contest progress. Failure can occur when time expires or an opposing side secures the cache first.
   - The base Frontier Contracts version can remain player-focused. With an NPC War adapter, nearby squads can temporarily treat the drop as an objective, move to defend or contest it, and claim it for their faction.
   - Candidate rewards include player credits, equipment access, a host-defined reward event, or no mechanical reward beyond the encounter itself.
-  - An NPC War logistics adapter could convert success into reinforcement resources, faster resource regeneration, a discounted or additional reinforcement dispatch, or a temporary squad-quality bonus.
+  - Optional NPC War integration could convert success into reinforcement resources, faster resource regeneration, a discounted or additional reinforcement dispatch, or a temporary squad-quality bonus.
   - One possible squad-quality bonus is a single reinforcement cycle in which every newly delivered infantry squad upgrades one ordinary grunt into a Specialist. The bonus should expire after one upgrade per expected squad slot or another clearly bounded count; it must not become a permanent composition change.
 - Acquire Intel:
   - Mark a search area rather than the exact objective position.
@@ -521,7 +521,7 @@ Objective implementation notes:
 - Drop and intel placement should use validated map locations, traces, and clearance checks rather than an arbitrary offset that can enter walls or inaccessible geometry.
 - Objective markers must distinguish an exact target such as a secured drop from an uncertain search region such as Acquire Intel.
 - Neither objective grants match score, captures a base-mode objective, or changes the winner.
-- NPC War participation and logistics rewards are adapter integrations. Frontier Contracts must still run correctly without NPC War or reinforcement resources installed.
+- NPC War participation is an optional integration. Frontier Contracts must still run correctly without NPC War; Reinforcement Resources themselves remain implemented and owned only by NPC War.
 
 Evidence:
 
@@ -571,15 +571,15 @@ As a separate mod:
 
 - NPC War remains clean and playable without economy.
 - Frontier Contracts can have its own settings, UI, and adapter rules.
-- Solo Bounty Hunt and Extraction Shooter can use the same objective/economy layer.
+- Rival Operators' Bounty Hunt adapter and Extraction Shooter can use the same objective/economy layer.
 - Other mods can use side objectives without installing the NPC War sandbox.
 - Persistence can be added later without forcing save-profile logic into NPC War.
 
-## Future System: Reinforcement Resources And Battlefield Logistics
+## Future NPC War System: Reinforcement Resources And Battlefield Logistics
 
-This is a faction-side logistics idea. It is not player economy.
+This is a planned NPC War faction-logistics system. It is not player economy and is not intended as a standalone framework for other modes.
 
-The purpose is to model how Militia and IMC spend battlefield reinforcement resources. It should stay conceptually separate from Frontier Contracts credits.
+The purpose is to model how Militia and IMC spend resources through NPC War's spawner, population budgets, escalation, and Director. Those dependencies make it an NPC War feature. It should remain conceptually separate from Frontier Contracts credits even if an optional contract reward can later affect a faction's logistics pool.
 
 ### Design Boundary
 
@@ -638,7 +638,7 @@ The Director, if involved, should influence policy rather than mint free resourc
 Only after reinforcement resources are explained does the interaction make sense:
 
 - Frontier Contracts can emit a reward event such as `team_logistics_bonus`.
-- NPC War or another host mod can choose to listen to that event.
+- NPC War can choose to listen to that event.
 - The reward can add resources, discount the next reinforcement, or unlock an emergency dispatch.
 - This should be visible and earned through a side objective, not hidden Director cheating.
 
@@ -646,7 +646,7 @@ Example:
 
 - A HVT objective succeeds.
 - Frontier Contracts emits a team logistics reward.
-- NPC War adapter adds a small resource bonus to the player's team.
+- NPC War adds a small resource bonus to the player's team.
 - The spawner later spends that bonus according to normal logistics rules.
 - Match score and win condition remain untouched.
 
@@ -655,7 +655,7 @@ Secure-a-drop variants:
 - A faction secures a supply cache and receives a small resource payment or temporary regeneration bonus.
 - The next valid reinforcement delivery is discounted or receives one additional squad, subject to normal population caps.
 - For one bounded reinforcement cycle, each arriving infantry squad can replace one ordinary grunt with a Specialist.
-- These outcomes are mutually selectable adapter policies, not mandatory rewards built into Frontier Contracts.
+- These outcomes are optional NPC War reward policies, not mandatory rewards built into Frontier Contracts.
 
 ### Relationship To Current NPC War Spawn Rules
 
@@ -685,15 +685,23 @@ If prototyped later:
 5. Severe deficit can spend pods faster, but only while resources last.
 6. Add debug messages or optional UI so the player understands what happened.
 
-## Future Mode: Solo Bounty Hunt, With NPC Opposition
+## Future Separate Mod: Rival Operators
 
-Solo Bounty Hunt should be a separate future project or branch, but its goal is not to invent a replacement for Bounty Hunt.
+Rival Operators should be a reusable framework for player-like, team-aligned NPC competitors. Its first application should make Bounty Hunt playable solo, but the framework should not be owned by Bounty Hunt. The same operators should later be usable by Frontier War and NPC War through mode-specific objective adapters.
 
-The goal is literal Bounty Hunt made playable solo by adding opposing NPC bounty hunters into the existing Bounty Hunt framework. If the player starts Bounty Hunt alone today, there is no real opposing team. This idea fills that missing opponent role while preserving the mode's native identity.
+Rival Operators are substitutes for missing human participants. They are not neutral camp champions, bounty targets, elite decorations, or ordinary infantry. They spawn on a normal player team, oppose the player and the other team, pursue the mode's objectives, and respawn according to rules appropriate to that mode.
 
 ### Design Target
 
-Keep the existing Bounty Hunt systems:
+Build one shared operator layer containing:
+
+- Player-like combat, target selection, movement, and survival behavior.
+- Configurable operator roles, equipment, abilities, and visual identity.
+- Team ownership, respawning, scoring attribution, and cleanup.
+- A dedicated population category that does not consume ordinary infantry, neutral camp, NPC Pilot, or autonomous Titan budgets.
+- A mode-objective adapter interface that tells an operator what matters and reports objective progress.
+
+The first adapter should preserve the existing Bounty Hunt systems:
 
 - Existing wave and round flow.
 - Existing neutral bounty AI and camps.
@@ -703,14 +711,14 @@ Keep the existing Bounty Hunt systems:
 - Existing score race and win condition.
 - Existing Bounty Hunt UI wherever practical.
 
-Add only what solo play lacks:
+Add what solo play lacks:
 
-- One or more rival NPC bounty hunters on the opposing team.
+- One or more Rival Operators on the opposing player team.
 - NPC-compatible bounty earning.
 - NPC-compatible banking.
 - Enough behavior for those NPCs to contest the player in the same score race.
 
-The first prototype should feel like Bounty Hunt against an enemy team, not like a custom NPC War variant with Bounty Hunt flavor.
+The first prototype should feel like Bounty Hunt against an enemy team, not like a custom NPC War variant with Bounty Hunt flavor. Once that loop works, the shared operator should receive Frontier War and NPC War adapters without copying the operator implementation.
 
 ### Team Model
 
@@ -718,8 +726,8 @@ Bounty Hunt already uses `TEAM_BOTH` for neutral bounty AI. That is useful and s
 
 - Neutral bounty AI, camps, bosses, and Bounty Titans remain neutral enemies that both sides can fight.
 - The player remains on a normal player team.
-- Rival bounty hunters spawn on the opposing player team.
-- Rival bounty hunters are hostile to the player and also hunt neutral bounty AI.
+- Rival Operators spawn on the opposing player team.
+- Rival Operators are hostile to the player and also hunt neutral bounty AI.
 
 This keeps the base mode's triangle intact:
 
@@ -728,14 +736,16 @@ This keeps the base mode's triangle intact:
 - Player and rival hunters can interfere with each other.
 - Banks decide whether carried value becomes real team score.
 
-### Rival NPC Bounty Hunters
+### Operator Chassis And Roles
 
-Rival hunters are NPC stand-ins for missing human opponents. They should be custom NPC classes, similar in spirit to Grunt Mode's custom unit classes, but their purpose is to participate in Bounty Hunt's existing economy.
+The first operator chassis should be a dangerous, mobile NPC that reads as a peer competitor rather than a tougher Grunt. A long-jump Spectre is a promising early candidate because it can gain vertical mobility and a distinct silhouette without immediately depending on every fragile NPC Pilot animation. `npc_pilot_elite` remains an important black-box research candidate.
 
-Possible classes:
+Possible roles:
 
+- Hunter:
+  - Aggressively tracks the player or other high-value enemy operators.
 - Prowler Handler:
-  - Tough NPC hunter with a Prowler pet.
+  - Coordinates with a Prowler while remaining a team participant itself.
 - Heavy Specialist:
   - Stronger weapons, armor, or anti-Titan equipment.
 - Drone Specialist:
@@ -746,25 +756,27 @@ Possible classes:
   - Long-range hunter that avoids close combat.
 - Runner/Collector:
   - Lower combat power, higher mobility, deposit-focused.
-- Titan Contract Hunter:
-  - Rare late-match hunter with Titan access or anti-Titan focus.
+- Anti-Titan Operator:
+  - Switches to anti-Titan equipment and challenges Titans without necessarily owning one.
+- Titan Operator:
+  - Optional late-match role that can call, embark, fight in, and eject from a team-owned Titan after the Pilot behavior is stable.
 
-Each class should have a readable battlefield role, not just higher numbers.
+Each role should have readable equipment and behavior, not just inflated health or damage. A Rival Operator should be threatening through awareness, mobility, positioning, ability use, and objective pressure. Prowler-like aggression, long jump, tactical cooldowns, ordnance, and anti-Titan weapon switching are desirable research targets.
 
-### Rival Hunter Behavior
+### Bounty Hunt Adapter
 
 Simple behavior loop:
 
-1. Spawn on the opposing team with a class identity.
+1. Spawn on the opposing player team with an operator identity.
 2. Seek neutral bounty camps, boss targets, or high-value NPCs from the active Bounty Hunt wave.
 3. Kill bounty targets and accumulate carried value through a simulated NPC-compatible version of Bounty Hunt's carried bonus.
 4. If carrying enough value and a bank is open, move toward an active bank.
 5. If threatened by the player, decide whether to fight, retreat, or keep banking.
 6. If killed by the player, lose, drop, or transfer some carried value according to whatever Bounty Hunt-like rule feels best.
 
-NPC bounty hunters do not need player-level decision making. Simple state rules are enough for a first version.
+Rival Operators do not need human-level reasoning. A legible utility or state-based planner is enough for a first version, provided it can complete the entire Bounty Hunt loop and present a reasonable combat threat.
 
-### NPC Deposit Rules
+### Operator Deposit Rules
 
 NPCs should not need player-style interaction prompts.
 
@@ -789,18 +801,47 @@ Recommended first version:
 - Deposited value is added to the opposing team's Bounty Hunt score through the closest existing Bounty Hunt scoring path or a minimal equivalent.
 - Optional visible upload effect later.
 
+### Frontier War Adapter
+
+Frontier War should use Rival Operators as members of the two competing player teams. They must not spawn from, belong to, or replace neutral camps.
+
+Frontier War operators should be able to:
+
+- Leave their team's normal spawn area and choose a useful battlefield objective.
+- Clear neutral Grunt, Spectre, and Reaper camps for their team.
+- Repair or reactivate damaged friendly turrets through an AI-safe equivalent of the player interaction.
+- Contest, hack, or attack enemy-controlled battlefield assets where the mode permits it.
+- Defend their Harvester and threatened friendly territory.
+- Attack the enemy Harvester when battlefield conditions permit.
+- Fight the player and opposing operators while retaining the ability to reprioritize objectives.
+
+Frontier War already owns its camp schedule and escalation. It also directly calls the shared `AiGameModes_SpawnDropPod()` and `AiGameModes_SpawnReaper()` functions. Rival Operators should consume neither that neutral camp population nor its escalation counters.
+
+### NPC War Adapter
+
+NPC War operators should participate as player-like members of their faction, separate from ordinary infantry, NPC Pilots, and autonomous Titans. Their adapter may:
+
+- Support nearby faction forces and respond to threatened objectives.
+- Hunt the player or opposing operators.
+- Capture and defend Hardpoints, pressure flags, or contribute to mode-specific objectives.
+- Enter the battle only after a configurable escalation threshold.
+- Optionally gain Titan access after the operator Pilot loop is stable.
+
+NPC War should expose independent settings for operator count, escalation threshold, respawn delay, loadout strength, Titan access, and score/core rewards. Operators must have their own population accounting so their presence does not silently reduce or inflate existing battlefield categories.
+
 ### Relationship To Frontier Contracts
 
-Solo Bounty Hunt should not depend on Frontier Contracts for its base identity.
+Rival Operators should not depend on Frontier Contracts. Frontier Contracts may later give operators optional HVT, contract, or side-objective knowledge, but it must not replace their native mode objectives.
 
-Its first job is to make existing Bounty Hunt playable solo with opposition. Frontier Contracts can later add optional side contracts, HVTs, credit purchases, or extra rewards on top of that, but those additions should not replace the vanilla Bounty Hunt score race.
-
-This order matters:
+Development order matters:
 
 1. Preserve Bounty Hunt.
-2. Add rival NPC opposition.
-3. Add NPC banking.
-4. Only then consider optional Frontier Contracts integration.
+2. Prove one Rival Operator can fight, earn bounty, and bank.
+3. Separate shared operator behavior from the Bounty Hunt objective adapter.
+4. Add a Frontier War adapter for neutral-camp clearing and turret repair.
+5. Add an NPC War adapter with independent population and escalation settings.
+6. Add Titan ownership only after Pilot behavior and cleanup are reliable.
+7. Only then consider optional Frontier Contracts integration.
 
 ### Evidence
 
@@ -813,17 +854,23 @@ This order matters:
 - NPC stolen bonus already exists as a related precedent: `_gamemode_at.nut:439`, `_gamemode_at.nut:488`, `_gamemode_at.nut:502`.
 - Bounty boss support exists already: `_gamemode_at.nut:1568`, `_gamemode_at.nut:1624`, `_gamemode_at.nut:1635`, `_gamemode_at.nut:1710`.
 - NPC steering exists: `_ai_soldiers.gnut:758`, `_ai_soldiers.gnut:781`.
+- Frontier War owns an independent camp controller: `_gamemode_fw.nut:747`.
+- Frontier War delegates squads and Reapers to shared spawn helpers: `_gamemode_fw.nut:852`, `_gamemode_fw.nut:893`.
+- Frontier War turret and Harvester systems provide objective surfaces for a future adapter: `_gamemode_fw.nut`.
+- NPC War already has explicit population accounting that should be extended with a separate operator category: `_ai_gamemodes.gnut`.
 
 ### Suggested MVP
 
-1. Fork or adapt Bounty Hunt while preserving its existing wave, bank, bounty, score, and win-condition flow.
-2. Support one solo player.
-3. Spawn one rival bounty hunter on the opposing player team.
-4. Let the rival fight neutral Bounty Hunt AI and accumulate simulated carried bounty value.
-5. Let the rival bank by standing near an active bank for a short timer.
-6. Add banked rival value to the opposing team's Bounty Hunt score.
-7. Let the player kill the rival to deny, drop, or steal carried value.
-8. Keep camps, banks, Bounty Titans, and score flow as close to native Bounty Hunt as possible.
+1. Create a separate Rival Operators mod with one mobile, team-aligned operator chassis.
+2. Adapt Bounty Hunt while preserving its existing wave, bank, bounty, score, and win-condition flow.
+3. Support one solo player.
+4. Spawn one Rival Operator on the opposing player team.
+5. Let the operator fight neutral Bounty Hunt AI and accumulate simulated carried bounty value.
+6. Let the operator bank by standing near an active bank for a short timer.
+7. Add banked operator value to the opposing team's Bounty Hunt score.
+8. Let the player kill the operator to deny, drop, or steal carried value.
+9. Keep camps, banks, Bounty Titans, and score flow as close to native Bounty Hunt as possible.
+10. Extract the proven Bounty Hunt decisions behind an objective-adapter boundary before adding Frontier War or NPC War support.
 
 ## Future Mode: Extraction Shooter
 
@@ -1023,7 +1070,7 @@ Create a framework for Titanfall 2 fan-made single-player missions inside Norths
 
 ## Future Separate Mod: Titanfall Milsim
 
-This is a parked concept, not part of NPC War's current development scope. The immediate priority is to finish Hardpoint telemetry and strategy work, test and repair CTF, and complete the NPC War battle sandbox. Tactical player systems should only be revisited after the core modes are stable.
+This is a parked concept, not part of NPC War's current development scope. The immediate priorities are crash stabilization, CTF validation, focused compatibility testing, the `0.2.0` release, and then NPC War's Reinforcement Resources system. Tactical player systems should only be revisited after the core modes are stable.
 
 ### Design Target
 
@@ -1126,7 +1173,7 @@ The mod should not become a collection of harsher settings presented as realism.
 
 ## Long-Term Research: Native AI And Convincing Pilot AI
 
-This is the boss-level research track. It should not block NPC War, Frontier Contracts, Solo Bounty Hunt, Extraction Shooter, or campaign prototypes.
+This is the boss-level research track. It should not block NPC War, Frontier Contracts, Rival Operators, Extraction Shooter, or campaign prototypes.
 
 The dream is a convincing enemy Pilot AI: not human-equivalent, but more believable than a soldier with a Pilot model. A good version would use movement, cover, weapon swaps, grenades, rodeo behavior, dodges, elevation, and possibly limited tactical behavior in ways that feel intentional.
 
@@ -1251,8 +1298,8 @@ Recommended order:
 2. Keep documentation and README aligned with live behavior.
 3. If building a new reusable layer, create Frontier Contracts as a separate mod with one HVT objective and no economy.
 4. Add match-local credits only after the HVT objective loop feels good.
-5. If logistics becomes a priority, prototype reinforcement resources inside NPC War separately from player economy.
-6. If solo bounty gameplay becomes the priority, prototype existing Bounty Hunt with one rival NPC hunter and native bank flow.
+5. After core stabilization, prototype Reinforcement Resources as NPC War's next major spawning and battlefield-logistics feature, separately from player economy.
+6. If Rival Operators becomes the priority, prototype its first objective adapter in existing Bounty Hunt with one opposing operator and native bank flow.
 7. If extraction becomes the priority, prototype Home Base plus one raid map with abstract loot.
 8. Use proven extraction infrastructure as the foundation for campaign missions.
 9. Treat native AI and convincing Pilot AI research as late-stage boss-level work, starting with `npc_pilot_elite` black-box tests before reverse engineering.
@@ -1264,7 +1311,7 @@ Reasoning:
 - Frontier Contracts proves side objectives without touching win conditions.
 - Economy should not exist until objectives are fun.
 - Reinforcement resources are faction logistics, not player credits.
-- Solo Bounty Hunt tests NPC opposition inside an existing economy-first mode instead of inventing a new score loop.
+- Rival Operators should prove their first objective adapter inside Bounty Hunt's existing economy-first mode instead of inventing a new score loop.
 - Extraction proves persistence, map travel, loot, and evac.
 - Campaign builds on extraction travel/objective infrastructure.
-- Titanfall Milsim should not distract from Hardpoint telemetry, CTF validation, or NPC War completion.
+- Titanfall Milsim should not distract from crash stabilization, CTF validation, Reinforcement Resources, or NPC War completion.

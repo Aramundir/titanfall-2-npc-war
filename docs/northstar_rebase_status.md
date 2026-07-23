@@ -40,28 +40,12 @@ After the rebase, these two files are currently byte-identical to local Northsta
 - `ai/_ai_soldiers.gnut`
 - `titan/_replacement_titans.gnut`
 
-## Current Uncommitted Work
+## Work Completed After The Rebase
 
-At the time this document was created, two unrelated changes intentionally remain outside the rebase commit:
-
-- `docs/hardpoint_testing_report.md`: records the additional 299-270 enabled-pressure win.
-- `evac/_evac.gnut`: temporary `NPCWAR_EVAC` diagnostics.
-
-The evac diagnostics print:
-
-- Map-provided node registration and transforms
-- Epilogue eligibility
-- Evacuating and winning teams
-- Automatic, map, or custom-node source
-- The complete candidate list
-- Uniform random range and selected index
-- Final selected transform
-
-Colony currently registers seven nodes in:
-
-- `mods/Northstar.CustomServers/mod/scripts/vscripts/mp/levels/mp_colony02.nut`
-
-NPC War then makes one uniform random selection from the registered array. Future Colony logs should reveal whether all seven nodes are reaching NPC War and whether the random roll is genuinely repeating one index. Once the bad location and cause are known, remove or gate the diagnostics before release.
+- The Hardpoint strategy experiment concluded. The combined minimum-commitment and utility strategy remains live, the rejected scenario harness was removed, and lightweight balance telemetry replaced the experimental decision logging.
+- Temporary evac and Titan/core investigation logging was removed before release.
+- The inherited `earn_meter_titan_multiplier 100` playlist override was removed so Titan core charge follows Northstar's normal values.
+- Attrition Extended's documented entity limits were applied in the local server configuration for NPC-heavy endurance testing; they are an installation safeguard rather than NPC War package code.
 
 ## Small-Candidate Audit
 
@@ -175,7 +159,7 @@ These files are no longer simple inherited copies. They define core NPC War beha
 | File | Why wholesale rebase is unsafe |
 |---|---|
 | `gamemodes/_ai_gamemodes.gnut` | NPC classes, escalation, spawning, team budgets, Director integration, unit tuning, and squad construction |
-| `gamemodes/_gamemode_cp.nut` | Hardpoint strategy, minimum commitments, scoring, scenario tests, and telemetry |
+| `gamemodes/_gamemode_cp.nut` | Hardpoint strategy, minimum commitments, scoring, and balance telemetry |
 | `gamemodes/_gamemode_ctf.nut` | NPC War CTF objective behavior; still largely untested in live play |
 | `burnmeter/_burnmeter.gnut` | Vanilla versus Grunt Mode boost pools, temporary weapon restoration, Map Hack cleanup, and pet/reward behavior |
 | `mp/spawn.nut` | NPC War player spawning and Grunt Movement behavior |
@@ -185,7 +169,7 @@ Recommended review order:
 1. `burnmeter/_burnmeter.gnut`, because boosts touch player inventory and previously caused match-ending errors.
 2. `mp/spawn.nut`, because player spawn bugs are immediately disruptive.
 3. `gamemodes/_ai_gamemodes.gnut`, focusing on upstream spawn and NPC lifecycle fixes.
-4. `gamemodes/_gamemode_cp.nut`, only after the current telemetry experiment concludes.
+4. `gamemodes/_gamemode_cp.nut`, only in response to a demonstrated Hardpoint failure or a focused balance question.
 5. `gamemodes/_gamemode_ctf.nut`, alongside dedicated CTF testing rather than speculative edits.
 
 ## Files Already Rebased But Still Needing Focused Tests
@@ -226,12 +210,12 @@ git diff --no-index -- `
 
 ## Suggested Continuation
 
-The safest next session is:
+The safest next work is:
 
-1. Collect several Colony `NPCWAR_EVAC` selections.
-2. Identify the inaccessible node by index and transform.
-3. Fix or exclude only that node, then remove temporary logging.
-4. Finish and commit the Hardpoint telemetry report separately.
-5. Audit the five small AI/melee candidates.
-6. Audit `_utility_shared.nut` with extra care.
-7. Return to deep gameplay forks only with a dedicated test plan per subsystem.
+1. Run long, populated Attrition and Hardpoint matches after a clean Northstar restart to evaluate whether the documented entity limits resolve the late-match native crashes.
+2. Perform dedicated CTF validation, including flag pickup, escort, interception, recovery, return timing, and epilogue.
+3. Complete focused lifecycle tests for callable Titans, AI Pilot Titans, boosts, evac, rodeo, cloak, grenades, health regeneration, and Reapers.
+4. Audit the five small AI/melee candidates in the revised order above.
+5. Audit `_utility_shared.nut` with extra care, including the null-safe Titan-soul check and the inherited killcam policy.
+6. Return to deep gameplay forks only with a dedicated test plan per subsystem.
+7. After core stabilization and the `0.2.0` release, begin Reinforcement Resources as NPC War's next major spawning and battlefield-logistics feature.

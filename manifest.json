@@ -1,6 +1,6 @@
 {
     "name": "NPC_War",
-    "version_number": "0.1.0",
+    "version_number": "0.2.0",
     "website_url": "https://discord.gg/g5DmeqSR2Z",
     "description": "Large NPC battlefield sandbox with normal pilot loadouts",
     "dependencies": [
