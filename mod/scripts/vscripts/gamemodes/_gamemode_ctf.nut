@@ -154,6 +154,7 @@ void function OnPrematchStart()
 void function OnPlaying()
 {
 	NPCWar_CacheSpawnPoints()
+	thread NPCWarBalanceTelemetry_Think( "ctf" )
 
 	// don't run spawning code if ains and nms aren't up to date
 	if ( GetAINScriptVersion() == AIN_REV && GetNodeCount() != 0 )
@@ -295,6 +296,7 @@ void function Spawner( int team )
 						entity node = points[ GetSpawnPointIndex( points, team ) ]
 						file.nextDropshipSpawnTime[ index ] = Time() + NPCWAR_DROPSHIP_SPAWN_COOLDOWN
 						file.nextInfantryDispatchTime[ index ] = Time() + NPCWAR_INFANTRY_DISPATCH_COOLDOWN
+						NPCWarBalanceTelemetry_PrintReinforcement( team, "ctf", "dropship", count, squadLimit )
 						Aitdm_SpawnDropShip( node, team )
 						shouldSpawnDropPod = false
 					}
@@ -304,7 +306,7 @@ void function Spawner( int team )
 				{
 					array< entity > points = file.dropPodPoints
 					entity node = points[ GetSpawnPointIndex( points, team ) ]
-					print( "Spawned Drop Pod for team " + team + " with " + count + "/" + squadLimit + " infantry" )
+					NPCWarBalanceTelemetry_PrintReinforcement( team, "ctf", "droppod", count, squadLimit )
 					waitthread AiGameModes_SpawnDropPod( node.GetOrigin(), node.GetAngles(), team, ent, SquadHandler )
 				}
 			}

@@ -28,10 +28,6 @@ const float CP_AI_NEAR_RESPONSE_DISTANCE = 2500.0
 const float CP_AI_CLOSE_TO_OBJECTIVE_DISTANCE = 1200.0
 const float CP_AI_DISTANCE_PENALTY_PER_1000_UNITS = 18.0
 const float CP_AI_REASSIGN_SCORE_MARGIN = 35.0
-const int CP_AI_TELEMETRY_OFF = 0
-const int CP_AI_TELEMETRY_ON = 1
-const float CP_AI_TELEMETRY_SNAPSHOT_INTERVAL = 10.0
-
 // Hardpoint objective utility weights. These are intentionally coarse because
 // squads reconsider asynchronously and should converge, not solve the map.
 const float CP_AI_SCORE_OWNED_CONTESTED = 260.0
@@ -351,7 +347,7 @@ void function Spawner( int team )
 						entity node = points[ GetSpawnPointIndex( points, team ) ]
 						file.nextDropshipSpawnTime[ index ] = Time() + NPCWAR_DROPSHIP_SPAWN_COOLDOWN
 						file.nextInfantryDispatchTime[ index ] = Time() + NPCWAR_INFANTRY_DISPATCH_COOLDOWN
-						CP_PrintReinforcementTelemetry( team, "dropship", count, squadLimit )
+						NPCWarBalanceTelemetry_PrintReinforcement( team, "cp", "dropship", count, squadLimit )
 						Aitdm_SpawnDropShip( node, team )
 						shouldSpawnDropPod = false
 					}
@@ -361,21 +357,13 @@ void function Spawner( int team )
 				{
 					array< entity > points = file.dropPodPoints
 					entity node = points[ GetSpawnPointIndex( points, team ) ]
-					CP_PrintReinforcementTelemetry( team, "droppod", count, squadLimit )
+					NPCWarBalanceTelemetry_PrintReinforcement( team, "cp", "droppod", count, squadLimit )
 					waitthread AiGameModes_SpawnDropPod( node.GetOrigin(), node.GetAngles(), team, ent, SquadHandler )
 				}
 			}
 		}
 		wait 0.1
 	}
-}
-
-void function CP_PrintReinforcementTelemetry( int team, string method, int infantryAlive, int infantryCap )
-{
-	if ( CP_GetTelemetryMode() == CP_AI_TELEMETRY_OFF )
-		return
-
-	print( "NPCWAR_REINFORCEMENT time=" + string( Time() ) + " team=" + string( team ) + " method=" + method + " alive=" + string( infantryAlive ) + " cap=" + string( infantryCap ) + " deficit=" + string( infantryCap - infantryAlive ) + " pressure=" + string( NPCWarDirector_GetPressureLevelForTeam( team ) ) + " dampening=" + string( NPCWarDirector_GetAllyDampeningLevelForTeam( team ) ) )
 }
 
 void function Aitdm_SpawnDropShip( entity node, int team )
@@ -1167,15 +1155,6 @@ bool function CP_HardpointCaptureNearlyCompleteForTeam( int team, HardpointStruc
 	return false
 }
 
-int function CP_GetTelemetryMode()
-{
-	int mode = GetCurrentPlaylistVarInt( "npcwar_cp_telemetry", CP_AI_TELEMETRY_ON )
-	if ( mode < CP_AI_TELEMETRY_OFF || mode > CP_AI_TELEMETRY_ON )
-		return CP_AI_TELEMETRY_ON
-
-	return mode
-}
-
 int function CP_GetTelemetryTeamIndex( int team )
 {
 	return team == TEAM_IMC ? 0 : 1
@@ -1186,7 +1165,7 @@ void function CP_HardpointTelemetryThink()
 	while ( GamePlayingOrSuddenDeath() )
 	{
 		CP_PrintHardpointTelemetrySnapshot()
-		wait CP_AI_TELEMETRY_SNAPSHOT_INTERVAL
+		wait NPCWAR_BALANCE_TELEMETRY_SNAPSHOT_INTERVAL
 	}
 
 	CP_PrintHardpointTelemetrySnapshot()
@@ -1237,13 +1216,7 @@ void function CP_PrintHardpointTelemetrySnapshot()
 		if ( owned == 0 )
 			file.aiTelemetryZeroControlSamples[index]++
 		file.aiTelemetryAmpedOwnedSamples[index] += ampedOwned
-		int enemyTeam = team == TEAM_IMC ? TEAM_MILITIA : TEAM_IMC
-		int infantryAlive = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_INFANTRY )
-		int reapersAlive = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_REAPER )
-		int prowlersAlive = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_PROWLER )
-		int titansAlive = NPCWar_GetTitanPopulationCount( team )
-		int aiPilotsAlive = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_PILOT )
-		print( "NPCWAR_BALANCE_SNAPSHOT time=" + string( Time() ) + " team=" + string( team ) + " score=" + string( GameRules_GetTeamScore( team ) ) + " enemy_score=" + string( GameRules_GetTeamScore( enemyTeam ) ) + " infantry_alive=" + string( infantryAlive ) + " infantry_cap=" + string( NPCWarDirector_GetSquadSpawnLimitForTelemetry( team ) ) + " reapers=" + string( reapersAlive ) + " prowlers=" + string( prowlersAlive ) + " titans=" + string( titansAlive ) + " ai_pilots=" + string( aiPilotsAlive ) + " pressure=" + string( NPCWarDirector_GetPressureLevelForTeam( team ) ) + " dampening=" + string( NPCWarDirector_GetAllyDampeningLevelForTeam( team ) ) + " squads=" + string( activeSquads ) + " owned=" + string( owned ) + " amped_owned=" + string( ampedOwned ) )
+		NPCWarBalanceTelemetry_PrintSnapshotForTeam( team, "cp", " squads=" + string( activeSquads ) + " owned=" + string( owned ) + " amped_owned=" + string( ampedOwned ) )
 	}
 }
 
@@ -1628,7 +1601,7 @@ float function GetHardpointCaptureProgress( HardpointStruct hardpoint )
 void function StartHardpointThink()
 {
 	thread TrackChevronStates()
-	if ( CP_GetTelemetryMode() == CP_AI_TELEMETRY_ON )
+	if ( NPCWarBalanceTelemetry_IsEnabled() )
 		thread CP_HardpointTelemetryThink()
 
 	foreach ( HardpointStruct hardpoint in file.hardpoints )

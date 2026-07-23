@@ -29,8 +29,13 @@ global function SetUpSpecialistGrunt
 global function NPCWar_MarkPopulationUnit
 global function NPCWar_GetPopulationCount
 global function NPCWar_GetTitanPopulationCount
+global function NPCWarBalanceTelemetry_IsEnabled
+global function NPCWarBalanceTelemetry_Think
+global function NPCWarBalanceTelemetry_PrintSnapshotForTeam
+global function NPCWarBalanceTelemetry_PrintReinforcement
 
 const INTRO_DROPSHIP_CUTOFF = 2000
+global const NPCWAR_BALANCE_TELEMETRY_SNAPSHOT_INTERVAL = 10.0
 
 global const NPCWAR_POPULATION_INFANTRY = "infantry"
 global const NPCWAR_POPULATION_REAPER = "reaper"
@@ -137,6 +142,55 @@ int function NPCWar_GetTitanPopulationCount( int team )
 	}
 
 	return count
+}
+
+bool function NPCWarBalanceTelemetry_IsEnabled()
+{
+	// Keep the original playlist key so existing private-match presets remain compatible.
+	return GetCurrentPlaylistVarInt( "npcwar_cp_telemetry", 1 ) != 0
+}
+
+void function NPCWarBalanceTelemetry_Think( string mode )
+{
+	if ( !NPCWarBalanceTelemetry_IsEnabled() )
+		return
+
+	while ( GamePlayingOrSuddenDeath() )
+	{
+		foreach ( int team in [ TEAM_IMC, TEAM_MILITIA ] )
+			NPCWarBalanceTelemetry_PrintSnapshotForTeam( team, mode )
+
+		wait NPCWAR_BALANCE_TELEMETRY_SNAPSHOT_INTERVAL
+	}
+
+	foreach ( int team in [ TEAM_IMC, TEAM_MILITIA ] )
+		NPCWarBalanceTelemetry_PrintSnapshotForTeam( team, mode )
+}
+
+void function NPCWarBalanceTelemetry_PrintSnapshotForTeam( int team, string mode, string modeFields = "" )
+{
+	if ( !NPCWarBalanceTelemetry_IsEnabled() )
+		return
+
+	int enemyTeam = team == TEAM_IMC ? TEAM_MILITIA : TEAM_IMC
+	int infantryAlive = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_INFANTRY )
+	int reapersAlive = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_REAPER )
+	int prowlersAlive = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_PROWLER )
+	int marvinsAlive = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_MARVIN )
+	int gunshipsAlive = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_GUNSHIP )
+	int titansAlive = NPCWar_GetTitanPopulationCount( team )
+	int aiPilotsAlive = NPCWar_GetPopulationCount( team, NPCWAR_POPULATION_PILOT )
+	int totalAlive = infantryAlive + reapersAlive + prowlersAlive + marvinsAlive + gunshipsAlive + titansAlive + aiPilotsAlive
+
+	print( "NPCWAR_BALANCE_SNAPSHOT time=" + string( Time() ) + " mode=" + mode + " team=" + string( team ) + " score=" + string( GameRules_GetTeamScore( team ) ) + " enemy_score=" + string( GameRules_GetTeamScore( enemyTeam ) ) + " infantry_alive=" + string( infantryAlive ) + " infantry_cap=" + string( NPCWarDirector_GetSquadSpawnLimitForTelemetry( team ) ) + " reapers=" + string( reapersAlive ) + " prowlers=" + string( prowlersAlive ) + " marvins=" + string( marvinsAlive ) + " gunships=" + string( gunshipsAlive ) + " titans=" + string( titansAlive ) + " ai_pilots=" + string( aiPilotsAlive ) + " total=" + string( totalAlive ) + " pressure=" + string( NPCWarDirector_GetPressureLevelForTeam( team ) ) + " dampening=" + string( NPCWarDirector_GetAllyDampeningLevelForTeam( team ) ) + modeFields )
+}
+
+void function NPCWarBalanceTelemetry_PrintReinforcement( int team, string mode, string method, int infantryAlive, int infantryCap )
+{
+	if ( !NPCWarBalanceTelemetry_IsEnabled() )
+		return
+
+	print( "NPCWAR_REINFORCEMENT time=" + string( Time() ) + " mode=" + mode + " team=" + string( team ) + " method=" + method + " alive=" + string( infantryAlive ) + " cap=" + string( infantryCap ) + " deficit=" + string( infantryCap - infantryAlive ) + " pressure=" + string( NPCWarDirector_GetPressureLevelForTeam( team ) ) + " dampening=" + string( NPCWarDirector_GetAllyDampeningLevelForTeam( team ) ) )
 }
 
 //------------------------------------------------------
